@@ -3,7 +3,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
+// Use client-only WalletMultiButton to avoid hydration mismatches
+const WalletMultiButtonDynamic = dynamic(
+  () => import('@solana/wallet-adapter-react-ui').then((m) => m.WalletMultiButton),
+  { ssr: false }
+);
 import { usePathname } from 'next/navigation';
 import dynamic from 'next/dynamic';
 const ToastContainer = dynamic(() => import('./Toast').then(m => m.ToastContainer), { ssr: false });
@@ -84,11 +88,10 @@ export default function Navbar() {
   }, [canQuery]);
 
   const navLinks = [
-    { href: '/', label: 'Home', icon: '🏠' },
-    { href: '/dashboard', label: 'Dashboard', icon: '📊' },
-    { href: '/founders', label: 'Founders', icon: '🧑‍💻' },
-    { href: '/projects', label: 'Projects', icon: '📂' },
-    { href: '/profile', label: 'My Profile', icon: '👤' },
+    { href: '/', label: 'Home' },
+    { href: '/projects', label: 'Projects' },
+    { href: '/founders', label: 'Founders' },
+    { href: '/dashboard', label: 'Dashboard' },
   ];
 
   const isActive = (path: string) => {
@@ -100,32 +103,28 @@ export default function Navbar() {
     <>
     <NotificationProvider />
     <ToastContainer />
-    <nav className="sticky top-0 z-50 glass-strong border-b border-white/10 shadow-2xl">
+    <nav className="sticky top-0 z-50 bg-white border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between items-center h-16">
+        <div className="flex items-center h-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center space-x-2 group">
-            <div className="flex items-center gap-2">
-              <div className="text-2xl font-bold gradient-text" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-                ◎ DevCol
-              </div>
+          <Link href="/" className="flex items-center mr-8">
+            <div className="text-xl font-bold text-gray-900">
+              DevCol
             </div>
-            <span className="hidden sm:inline text-gray-400 text-xs font-medium tracking-wide">Web3 Project Showcase</span>
           </Link>
 
           {/* Desktop Navigation */}
-          <div className="hidden md:flex items-center space-x-1">
+          <div className="hidden md:flex items-center space-x-8 flex-1">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`text-sm font-medium transition-colors ${
                   isActive(link.href)
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                    ? 'text-gray-900'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
               >
-                <span className="mr-2">{link.icon}</span>
                 {link.label}
               </Link>
             ))}
@@ -133,55 +132,43 @@ export default function Navbar() {
             {publicKey && (
               <Link
                 href="/requests"
-                className={`relative px-4 py-2 rounded-lg font-medium transition-all ${
+                className={`relative text-sm font-medium transition-colors ${
                   isActive('/requests')
-                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30'
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
+                    ? 'text-gray-900'
+                    : 'text-gray-600 hover:text-gray-900'
                 }`}
-                title="Collaboration Inbox"
               >
-                <span className="mr-2">✉️</span>
                 Requests
                 {pendingCount > 0 && (
-                  <span className="absolute -top-1 -right-1 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
+                  <span className="absolute -top-2 -right-3 bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
                     {pendingCount}
                   </span>
                 )}
               </Link>
             )}
-            
-            {publicKey && profileChecked && (
-              hasProfile ? (
-                <Link
-                  href="/projects/new"
-                  className="ml-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all shadow-lg shadow-purple-500/30"
-                >
-                  <span className="mr-2">🚀</span>
-                  Create Project
-                </Link>
-              ) : (
-                <Link
-                  href="/profile"
-                  className="ml-2 px-4 py-2 rounded-lg font-medium bg-yellow-600 hover:bg-yellow-700 text-white transition-all"
-                  title="Create your profile first"
-                >
-                  <span className="mr-2">👤</span>
-                  Create Profile
-                </Link>
-              )
-            )}
           </div>
 
-          {/* Wallet Button */}
+          {/* Right side */}
           <div className="flex items-center space-x-4">
+            {/* Wallet */}
             <div className="wallet-adapter-button-trigger">
-              <WalletMultiButton />
+              <WalletMultiButtonDynamic />
             </div>
+
+            {/* CTA */}
+            {publicKey && profileChecked && hasProfile && (
+              <Link
+                href="/projects/new"
+                className="hidden md:block px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+              >
+                Submit Project
+              </Link>
+            )}
 
             {/* Mobile menu button */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 rounded-lg text-gray-300 hover:bg-gray-800"
+              className="md:hidden p-2 text-gray-600 hover:text-gray-900"
             >
               {mobileMenuOpen ? (
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -196,9 +183,9 @@ export default function Navbar() {
           </div>
         </div>
 
-        {/* Mobile Navigation */}
-        {mobileMenuOpen && (
-          <div className="md:hidden py-4 space-y-2 border-t border-gray-800">
+          {/* Mobile Navigation */}
+          {mobileMenuOpen && (
+            <div className="md:hidden py-4 space-y-2 border-t border-gray-200">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
@@ -206,11 +193,10 @@ export default function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block px-4 py-3 rounded-lg font-medium transition-all ${
                   isActive(link.href)
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-[#00D4AA] text-white'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                <span className="mr-2">{link.icon}</span>
                 {link.label}
               </Link>
             ))}
@@ -221,11 +207,10 @@ export default function Navbar() {
                 onClick={() => setMobileMenuOpen(false)}
                 className={`block px-4 py-3 rounded-lg font-medium transition-all ${
                   isActive('/requests')
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-[#00D4AA] text-white'
+                    : 'text-gray-600 hover:bg-gray-100 hover:text-gray-900'
                 }`}
               >
-                <span className="mr-2">✉️</span>
                 Requests
                 {pendingCount > 0 && (
                   <span className="ml-2 inline-block bg-red-600 text-white text-xs px-1.5 py-0.5 rounded-full">
@@ -240,7 +225,7 @@ export default function Navbar() {
                 <Link
                   href="/projects/new"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-3 rounded-lg font-medium bg-linear-to-r from-green-600 to-emerald-600 text-white"
+                  className="block px-4 py-3 rounded-lg font-semibold bg-[#00D4AA] text-white"
                 >
                   <span className="mr-2">🚀</span>
                   Create Project
@@ -249,7 +234,7 @@ export default function Navbar() {
                 <Link
                   href="/profile"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-3 rounded-lg font-medium bg-yellow-600 text-white"
+                  className="block px-4 py-3 rounded-lg font-medium border border-gray-300 text-gray-600"
                 >
                   <span className="mr-2">👤</span>
                   Create Profile First

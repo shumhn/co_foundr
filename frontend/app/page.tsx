@@ -97,42 +97,41 @@ export default function Home() {
     <div className="min-h-screen">
       <main className="max-w-7xl mx-auto px-4 py-10">
         {/* Hero */}
-        <section className="text-center mb-16 pt-8">
-          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full glass border border-purple-500/30 text-purple-300 text-xs font-medium mb-6 animate-pulse">
-            <span className="w-2 h-2 bg-purple-400 rounded-full animate-pulse"></span>
-            <span>Built on Solana</span>
-          </div>
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight mb-6" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
-            <span className="gradient-text">Showcase</span> your Web3 project.
-            <br />
-            <span className="text-white">Connect with builders.</span>
-          </h1>
-          <p className="text-gray-400 text-lg md:text-xl max-w-2xl mx-auto leading-relaxed mb-8">
-            The premier platform for Web3 founders to showcase their projects, share their vision, and discover like-minded teams building the future.
-          </p>
-          <div className="flex justify-center gap-4">
-            <Link href="/projects/new" className="group px-6 py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white font-semibold shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 transition-all">
-              <span className="flex items-center gap-2">
-                Submit Project
-                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                </svg>
-              </span>
-            </Link>
-            <Link href="/projects" className="px-6 py-3.5 rounded-xl glass hover:glass-strong text-white font-semibold border border-white/10 hover:border-white/20 transition-all">
-              Explore Projects
-            </Link>
+        <section className="mb-20 pt-16">
+          <div className="max-w-5xl mx-auto text-center">
+            <div className="mb-8">
+              <span className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Developer Collaboration Platform</span>
+            </div>
+            <h1 className="text-6xl md:text-7xl font-black mb-4 leading-none uppercase tracking-tight">
+              <span className="text-gray-900">BUILD THE NEXT</span>
+              <br />
+              <span className="text-gray-900">KILLER PROJECT</span>
+            </h1>
+            <p className="text-xl md:text-2xl font-semibold text-gray-700 mb-10">
+              Find your next pair programmer.
+            </p>
+            <p className="text-gray-600 text-lg mb-10 max-w-2xl mx-auto leading-relaxed">
+              Connect with talented Web3 developers, form teams, and collaborate on projects built on Solana. DevCol helps you find the right people to bring your ideas to life.
+            </p>
+            <div className="flex justify-center gap-4">
+              <Link href="/projects/new" className="px-8 py-4 bg-[#00D4AA] hover:bg-[#00B894] text-white font-bold rounded-lg transition-all">
+                Start Building
+              </Link>
+              <Link href="/founders" className="px-8 py-4 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-lg transition-all">
+                Find Teammates
+              </Link>
+            </div>
           </div>
         </section>
 
         {/* Featured Projects */}
         <section className="mb-16">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-white" style={{fontFamily: "'Space Grotesk', sans-serif"}}>Featured Projects</h2>
-              <p className="text-gray-500 text-sm mt-1">Discover what builders are creating</p>
+              <h2 className="text-3xl font-bold text-gray-900 uppercase tracking-tight">Featured Projects</h2>
+              <p className="text-gray-500 text-sm mt-1">Exceptional work from the community</p>
             </div>
-            <Link href="/projects" className="text-sm text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1">
+            <Link href="/projects" className="text-sm text-gray-900 hover:text-[#00D4AA] font-semibold flex items-center gap-1 transition-colors uppercase tracking-wide">
               View all
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -146,23 +145,30 @@ export default function Home() {
               ))}
             </div>
           ) : featured.length === 0 ? (
-            <div className="rounded-2xl glass p-12 text-center">
-              <div className="text-6xl mb-4 opacity-50">🚀</div>
-              <p className="text-gray-400">No projects yet. Be the first to showcase your work.</p>
+            <div className="rounded-xl bg-white border border-gray-200 p-12 text-center shadow-sm">
+              <div className="text-6xl mb-4 opacity-30">🚀</div>
+              <p className="text-gray-600">No projects yet. Be the first to showcase your work.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {featured.map((p: any) => {
                 const logoHash = p.account.logoHash || p.account.logo_hash || null;
                 const logoUrl = logoHash ? `https://ipfs.io/ipfs/${logoHash}` : null;
-                const tech = p.account.techStack || p.account.tech_stack || [];
+                const rawTech = p.account.techStack || p.account.tech_stack || [];
+                const tech = (rawTech as any[]).map((t: any) => typeof t === 'string' ? t : (t?.value ?? '')).filter(Boolean);
+                const rawName = p.account.name;
+                const name = typeof rawName === 'string' ? rawName : (rawName?.value ?? '');
+                const rawDesc = p.account.description;
+                const description = typeof rawDesc === 'string' ? rawDesc : (rawDesc?.value ?? '');
+                const rawTag = p.account.collabIntent || p.account.collab_intent;
+                const tagline = typeof rawTag === 'string' ? rawTag : (rawTag?.value ?? '');
                 return (
                   <ShowcaseCard
                     key={p.publicKey.toString()}
                     href={`/projects/${p.publicKey.toString()}`}
-                    name={p.account.name}
-                    tagline={p.account.collabIntent || p.account.collab_intent}
-                    description={p.account.description}
+                    name={name}
+                    tagline={tagline}
+                    description={description}
                     logoUrl={logoUrl}
                     techStack={tech}
                   />
@@ -174,12 +180,12 @@ export default function Home() {
 
         {/* Founders Spotlight */}
         <section className="mb-16">
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-8">
             <div>
-              <h2 className="text-2xl font-bold text-white" style={{fontFamily: "'Space Grotesk', sans-serif"}}>Founders Spotlight</h2>
-              <p className="text-gray-500 text-sm mt-1">Meet the teams behind the projects</p>
+              <h2 className="text-3xl font-bold text-gray-900 uppercase tracking-tight">Founders</h2>
+              <p className="text-gray-500 text-sm mt-1">The builders behind the projects</p>
             </div>
-            <Link href="/founders" className="text-sm text-purple-400 hover:text-purple-300 font-medium flex items-center gap-1">
+            <Link href="/founders" className="text-sm text-gray-900 hover:text-[#00D4AA] font-semibold flex items-center gap-1 transition-colors uppercase tracking-wide">
               View all
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -193,9 +199,9 @@ export default function Home() {
               ))}
             </div>
           ) : founders.length === 0 ? (
-            <div className="rounded-2xl glass p-12 text-center">
-              <div className="text-6xl mb-4 opacity-50">👤</div>
-              <p className="text-gray-400">No founders yet. Create a profile and submit a project.</p>
+            <div className="rounded-xl bg-white border border-gray-200 p-12 text-center shadow-sm">
+              <div className="text-6xl mb-4 opacity-30">👤</div>
+              <p className="text-gray-600">No founders yet. Create a profile and submit a project.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -203,14 +209,14 @@ export default function Home() {
                 <Link
                   key={f.wallet}
                   href={`/profile?wallet=${f.wallet}`}
-                  className="group rounded-2xl glass hover:glass-strong transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-purple-500/10 p-5"
+                  className="group rounded-xl bg-white border border-gray-200 hover:border-[#00D4AA] hover:shadow-md transition-all p-5"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <div className="text-white font-semibold group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:to-blue-400 group-hover:bg-clip-text transition-all">{f.username}</div>
-                    <span className="text-xs glass-strong px-2 py-0.5 rounded-full border border-white/10">{f.projects}</span>
+                    <div className="text-gray-900 font-bold">{f.username}</div>
+                    <span className="text-xs text-gray-500 font-medium">{f.projects} projects</span>
                   </div>
                   {f.bio && (
-                    <p className="text-sm text-gray-400 line-clamp-2">{f.bio}</p>
+                    <p className="text-sm text-gray-600 line-clamp-2">{f.bio}</p>
                   )}
                   {!f.bio && (
                     <p className="text-sm text-gray-500">{f.wallet.slice(0, 6)}…{f.wallet.slice(-4)}</p>

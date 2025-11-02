@@ -15,30 +15,30 @@ export default function ShowcaseCard({ href, name, tagline, description, logoUrl
   return (
     <Link
       href={href}
-      className="group relative overflow-hidden rounded-2xl glass hover:glass-strong transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl hover:shadow-purple-500/20"
+      className="group relative overflow-hidden rounded-xl border border-gray-200 hover:border-[#00D4AA] bg-white hover:shadow-lg transition-all duration-200"
     >
       <div className="flex items-start gap-4 p-5">
-        <div className="shrink-0 w-14 h-14 rounded-xl glass-strong border border-white/10 overflow-hidden">
+        <div className="shrink-0 w-12 h-12 rounded-lg border border-gray-200 bg-gray-50 overflow-hidden">
           {logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={logoUrl} alt={name} className="w-full h-full object-cover" />
           ) : (
-            <div className="w-full h-full grid place-items-center text-purple-400 text-lg">🧩</div>
+            <div className="w-full h-full grid place-items-center text-[#00D4AA] text-base">◎</div>
           )}
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 mb-1">
-            <h3 className="text-white font-semibold truncate group-hover:text-transparent group-hover:bg-gradient-to-r group-hover:from-purple-400 group-hover:to-blue-400 group-hover:bg-clip-text transition-all">{name}</h3>
+            <h3 className="text-gray-900 font-bold truncate">{name}</h3>
           </div>
           {tagline ? (
-            <p className="text-sm text-gray-300 line-clamp-1">{tagline}</p>
+            <p className="text-sm text-gray-600 line-clamp-1">{tagline}</p>
           ) : (
-            <p className="text-sm text-gray-400 line-clamp-2">{description}</p>
+            <p className="text-sm text-gray-600 line-clamp-2">{description}</p>
           )}
           {techStack && techStack.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-1.5">
               {techStack.slice(0, 5).map((t, i) => (
-                <span key={i} className="text-[10px] glass-strong text-gray-200 border border-white/10 rounded px-2 py-0.5">
+                <span key={i} className="text-[10px] text-gray-600 bg-gray-100 rounded px-2 py-0.5 font-medium">
                   {t}
                 </span>
               ))}
@@ -49,7 +49,7 @@ export default function ShowcaseCard({ href, name, tagline, description, logoUrl
           )}
         </div>
       </div>
-      <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-purple-500/30 to-transparent" />
+
     </Link>
   );
 }
