@@ -116,7 +116,7 @@ export default function Home() {
               Find your co‑builder. Ship on Solana.
             </p>
             <p className={`${premium.className} text-gray-600 text-lg mb-12 max-w-2xl mx-auto leading-relaxed`}>
-              Connect with talented Web3 developers, form teams, and collaborate on projects built on Solana. DevCol helps you find the right people to bring your ideas to life.
+              Connect with talented Web3 developers, form teams, and collaborate on projects built on Solana. Cofounder helps you find the right people to bring your ideas to life.
             </p>
             <div className="flex justify-center gap-4">
               <Link href="/projects/new" className="px-8 py-4 bg-[#00D4AA] hover:bg-[#00B894] text-white font-bold rounded-lg transition-all">

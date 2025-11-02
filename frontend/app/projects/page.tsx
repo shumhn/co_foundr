@@ -66,7 +66,7 @@ export default function ProjectsPage() {
         window.location.href = '/profile';
         return;
       }
-      const name = 'DevCol Sample Project';
+      const name = 'Cofounder Sample Project';
       const description = 'A sample Web3 collaboration project on Solana. This project demonstrates the full project flow: tech stack, contribution needs, collaboration level, status, and collaboration intent.';
       const github = 'https://github.com/example/sample-repo';
       const logoHash = '';

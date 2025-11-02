@@ -349,7 +349,7 @@ export default function ProjectCreate() {
           onChange={(e) => setName(e.target.value)}
           maxLength={50}
           className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
-          placeholder="DevCol - Web3 Collaboration Platform"
+          placeholder="Cofounder - Web3 Collaboration Platform"
         />
         <div className="text-xs text-gray-500 mt-1">{name.length}/50</div>
         {errors.name && <p className="text-red-600 text-sm mt-1">{errors.name}</p>}

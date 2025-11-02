@@ -45,7 +45,7 @@ export default function Sidebar() {
       <div className="p-6">
         {/* Logo */}
         <Link href="/" className="block mb-8">
-          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">DevCol</h1>
+          <h1 className="text-2xl font-semibold text-gray-900 tracking-tight">Cofounder</h1>
           <p className="text-xs text-gray-500 mt-1 tracking-wide uppercase">Developer Collaboration</p>
         </Link>
 

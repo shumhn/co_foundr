@@ -314,7 +314,7 @@ export default function DashboardPage() {
         <div className="mt-12">
           <EmptyState
             icon="🚀"
-            title="Welcome to DevCol!"
+            title="Welcome to Cofounder!"
             description="Start your Web3 developer collaboration journey by creating a project or joining existing ones"
             actionLabel="Create a Project"
             actionHref="/projects/new"

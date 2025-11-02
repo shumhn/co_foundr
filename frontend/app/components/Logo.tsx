@@ -13,7 +13,7 @@ type LogoProps = {
 
 export default function Logo({ withWordmark = true, href = '/', className = '' }: LogoProps) {
   const content = (
-    <div className={`flex items-center ${className}`} aria-label="DevCol">
+    <div className={`flex items-center ${className}`} aria-label="Cofounder">
       {/* Mark */}
       <div className="w-9 h-9 rounded-xl bg-white border border-gray-200 grid place-items-center shadow-sm">
         <svg width="20" height="20" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
@@ -32,7 +32,7 @@ export default function Logo({ withWordmark = true, href = '/', className = '' }
       </div>
       {withWordmark && (
         <span className={`${Display.className} ml-2 text-base font-bold tracking-tight text-gray-900`}>
-          DevCol
+          Cofounder
         </span>
       )}
     </div>

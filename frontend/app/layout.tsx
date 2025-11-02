@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "DevCol - Web3 Developer Collaboration",
+  title: "Cofounder - Web3 Developer Collaboration",
   description: "A decentralized platform for developers to collaborate on projects using Solana blockchain",
 };
 
