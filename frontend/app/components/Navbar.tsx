@@ -86,6 +86,7 @@ export default function Navbar() {
   const navLinks = [
     { href: '/', label: 'Home', icon: '🏠' },
     { href: '/dashboard', label: 'Dashboard', icon: '📊' },
+    { href: '/founders', label: 'Founders', icon: '🧑‍💻' },
     { href: '/projects', label: 'Projects', icon: '📂' },
     { href: '/profile', label: 'My Profile', icon: '👤' },
   ];
@@ -99,15 +100,17 @@ export default function Navbar() {
     <>
     <NotificationProvider />
     <ToastContainer />
-    <nav className="sticky top-0 z-50 bg-gray-900 border-b border-gray-800 shadow-lg">
+    <nav className="sticky top-0 z-50 glass-strong border-b border-white/10 shadow-2xl">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center space-x-2 group">
-            <div className="text-2xl font-bold bg-gradient-to-r from-blue-500 to-purple-600 bg-clip-text text-transparent">
-              ◎ DevCol
+            <div className="flex items-center gap-2">
+              <div className="text-2xl font-bold gradient-text" style={{fontFamily: "'Space Grotesk', sans-serif"}}>
+                ◎ DevCol
+              </div>
             </div>
-            <span className="hidden sm:inline text-gray-400 text-sm">Web3 Developer Collaboration</span>
+            <span className="hidden sm:inline text-gray-400 text-xs font-medium tracking-wide">Web3 Project Showcase</span>
           </Link>
 
           {/* Desktop Navigation */}
@@ -118,8 +121,8 @@ export default function Navbar() {
                 href={link.href}
                 className={`px-4 py-2 rounded-lg font-medium transition-all ${
                   isActive(link.href)
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
                 }`}
               >
                 <span className="mr-2">{link.icon}</span>
@@ -132,8 +135,8 @@ export default function Navbar() {
                 href="/requests"
                 className={`relative px-4 py-2 rounded-lg font-medium transition-all ${
                   isActive('/requests')
-                    ? 'bg-blue-600 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-gradient-to-r from-purple-600 to-blue-600 text-white shadow-lg shadow-purple-500/30'
+                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
                 }`}
                 title="Collaboration Inbox"
               >
@@ -151,7 +154,7 @@ export default function Navbar() {
               hasProfile ? (
                 <Link
                   href="/projects/new"
-                  className="ml-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white transition-all shadow-lg"
+                  className="ml-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700 text-white transition-all shadow-lg shadow-purple-500/30"
                 >
                   <span className="mr-2">🚀</span>
                   Create Project
@@ -237,7 +240,7 @@ export default function Navbar() {
                 <Link
                   href="/projects/new"
                   onClick={() => setMobileMenuOpen(false)}
-                  className="block px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                  className="block px-4 py-3 rounded-lg font-medium bg-linear-to-r from-green-600 to-emerald-600 text-white"
                 >
                   <span className="mr-2">🚀</span>
                   Create Project

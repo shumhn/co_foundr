@@ -251,7 +251,7 @@ export default function ProjectsPage() {
           </p>
           {publicKey && projects.length === 0 && (
             <Link href="/projects/new">
-              <button className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-semibold">
+              <button className="bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-semibold">
                 🚀 Create First Project
               </button>
             </Link>
@@ -274,7 +274,7 @@ export default function ProjectsPage() {
                 <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-750 transition-all cursor-pointer border border-gray-700 hover:border-blue-600 h-full flex flex-col">
                   {/* Logo */}
                   <div className="mb-4 flex items-center space-x-3">
-                    <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                       {project.account.logoIpfsHash ? (
                         <img
                           src={`https://gateway.pinata.cloud/ipfs/${project.account.logoIpfsHash}`}
@@ -305,7 +305,7 @@ export default function ProjectsPage() {
                   </div>
 
                   {/* Description */}
-                  <p className="text-gray-300 text-sm mb-4 line-clamp-3 flex-grow">
+                  <p className="text-gray-300 text-sm mb-4 line-clamp-3 grow">
                     {project.account.description}
                   </p>
 

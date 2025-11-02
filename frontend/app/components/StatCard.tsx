@@ -22,7 +22,7 @@ export function StatCard({ title, value, icon, color, subtitle, href, loading }:
   };
 
   const content = (
-    <div className={`relative overflow-hidden bg-gradient-to-br ${colorClasses[color]} rounded-lg p-6 shadow-lg hover:shadow-xl transition-all duration-200 ${href ? 'cursor-pointer hover:scale-105' : ''}`}>
+    <div className={`relative overflow-hidden bg-linear-to-br ${colorClasses[color]} rounded-lg p-6 shadow-lg hover:shadow-xl transition-all duration-200 ${href ? 'cursor-pointer hover:scale-105' : ''}`}>
       <div className="flex items-center justify-between">
         <div className="flex-1">
           <p className="text-sm font-medium text-white/80 mb-1">{title}</p>

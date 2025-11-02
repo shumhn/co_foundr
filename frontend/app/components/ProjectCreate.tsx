@@ -504,7 +504,7 @@ export default function ProjectCreate() {
         <button
           onClick={handleSubmit}
           disabled={!canSubmit || loading}
-          className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
+          className="flex-1 bg-linear-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50"
         >
           {loading ? '⏳ Creating...' : '🚀 Create Project'}
         </button>

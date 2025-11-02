@@ -313,11 +313,11 @@ export default function ProjectDetailPage() {
       </Link>
 
       {/* Hero Section */}
-      <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg p-8 mb-6">
+      <div className="bg-linear-to-r from-blue-600 to-purple-600 rounded-lg p-8 mb-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start space-x-6">
             {/* Logo */}
-            <div className="w-24 h-24 rounded-lg bg-white/10 backdrop-blur flex items-center justify-center overflow-hidden flex-shrink-0">
+            <div className="w-24 h-24 rounded-lg bg-white/10 backdrop-blur flex items-center justify-center overflow-hidden shrink-0">
               {account.logoIpfsHash ? (
                 <img
                   src={`https://gateway.pinata.cloud/ipfs/${account.logoIpfsHash}`}
@@ -468,41 +468,12 @@ export default function ProjectDetailPage() {
             </div>
           </div>
 
-          {/* Role Requirements */}
-          {account.requiredRoles && account.requiredRoles.length > 0 && (
-            <div className="bg-gray-800 rounded-lg p-6">
-              <h2 className="text-xl font-bold text-white mb-4">👥 Role Slots</h2>
-              <div className="space-y-3">
-                {account.requiredRoles.map((roleReq: any, idx: number) => {
-                  const isFull = roleReq.accepted >= roleReq.needed;
-                  return (
-                    <div key={idx} className={`flex items-center justify-between p-3 rounded-lg border ${isFull ? 'bg-gray-700 border-gray-600' : 'bg-gray-700 border-green-600'}`}>
-                      <div className="flex items-center space-x-2">
-                        <span className="text-white font-medium">
-                          {(() => {
-                            const key = (Object.keys(roleReq.role || {})[0] || '');
-                            const label = roleReq.label as string | undefined;
-                            const pretty = key.replace(/^[a-z]/, (c) => c.toUpperCase());
-                            return key === 'others' && label ? `${pretty} — ${label}` : pretty;
-                          })()}
-                        </span>
-                        {isFull && <span className="text-xs bg-red-600 text-white px-2 py-1 rounded">Full</span>}
-                      </div>
-                      <div className="text-right">
-                        <div className="text-white font-semibold">{roleReq.accepted}/{roleReq.needed}</div>
-                        <div className="text-xs text-gray-400">slots filled</div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+          {/* Showcase mode: hide role requirements */}
 
-          {/* Collaboration Intent */}
+          {/* About the Project */}
           {account.collabIntent && (
-            <div className="bg-gradient-to-r from-purple-900 to-blue-900 rounded-lg p-6">
-              <h2 className="text-xl font-bold text-white mb-4">💬 What They're Looking For</h2>
+            <div className="bg-linear-to-r from-purple-900 to-blue-900 rounded-lg p-6">
+              <h2 className="text-xl font-bold text-white mb-4">📄 About the Project</h2>
               <p className="text-white">{account.collabIntent}</p>
             </div>
           )}
@@ -554,23 +525,21 @@ export default function ProjectDetailPage() {
               </button>
             </div>
           ) : publicKey ? (
-            hasProfile ? (
-              <button
-                onClick={() => setShowCollabModal(true)}
-                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-lg font-semibold text-lg"
-              >
-                🤝 Send Collaboration Request
-              </button>
-            ) : (
-              <Link href="/profile">
-                <button
-                  className="w-full bg-gray-700 hover:bg-gray-600 text-white px-6 py-4 rounded-lg font-semibold text-lg"
-                  disabled={!profileChecked}
-                  title="Create your profile to send collaboration requests"
+            (
+              account.githubLink || account.github_link ? (
+                <a
+                  href={(account.githubLink || account.github_link) as string}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="w-full bg-gray-800 hover:bg-gray-700 text-white px-6 py-4 rounded-lg font-semibold text-lg text-center block border border-gray-700"
                 >
-                  👤 Create Your Profile to Send Requests
-                </button>
-              </Link>
+                  🔗 View Repository
+                </a>
+              ) : (
+                <div className="w-full bg-gray-800 text-gray-300 px-6 py-4 rounded-lg font-semibold text-lg border border-gray-700 text-center">
+                  Showcase project
+                </div>
+              )
             )
           ) : null}
         </div>
@@ -655,7 +624,7 @@ export default function ProjectDetailPage() {
               <button
                 onClick={sendCollabRequest}
                 disabled={!collabMessage.trim() || !proofGithub.trim() || !proofTwitter.trim() || sending}
-                className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg font-semibold disabled:opacity-50"
+                className="flex-1 bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg font-semibold disabled:opacity-50"
               >
                 {sending ? '⏳ Sending...' : '✉️ Send Request'}
               </button>
