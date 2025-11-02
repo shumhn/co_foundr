@@ -75,7 +75,7 @@ export async function uploadMetadataToIPFS(metadata: IPFSMetadata): Promise<stri
     const jsonString = JSON.stringify(metadata);
     const encoder = new TextEncoder();
     const data = encoder.encode(jsonString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data as BufferSource);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
     
