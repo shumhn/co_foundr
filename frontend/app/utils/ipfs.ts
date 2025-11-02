@@ -48,7 +48,7 @@ export async function uploadImageToIPFS(file: File): Promise<string> {
       // Generate a short, realistic mock IPFS CID (Qm... format, ~46 chars)
       const encoder = new TextEncoder();
       const data = encoder.encode(base64String.slice(0, 100) + file.name + Date.now());
-      const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+      const hashBuffer = await crypto.subtle.digest('SHA-256', data as BufferSource);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 44);
       const mockCID = `Qm${hashHex}`; // Realistic IPFS CIDv0 format
