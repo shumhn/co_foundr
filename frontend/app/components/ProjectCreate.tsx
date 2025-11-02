@@ -24,6 +24,16 @@ const ProjectStatus = {
   OnHold: { onHold: {} },
 } as const;
 
+const Role = {
+  Frontend: { Frontend: {} },
+  Backend: { Backend: {} },
+  Fullstack: { Fullstack: {} },
+  DevOps: { DevOps: {} },
+  QA: { QA: {} },
+  Designer: { Designer: {} },
+  PM: { PM: {} },
+} as const;
+
 type Tag = {
   key: string;
   label: string;
@@ -77,6 +87,7 @@ export default function ProjectCreate() {
   const [needs, setNeeds] = useState<string[]>([]);
   const [customTech, setCustomTech] = useState('');
   const [customNeed, setCustomNeed] = useState('');
+  const [roleRequirements, setRoleRequirements] = useState<Array<{role: keyof typeof Role, needed: number}>>([]);
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -180,7 +191,8 @@ export default function ProjectCreate() {
           needs,
           collabIntent,
           CollaborationLevel[collabLevel],
-          ProjectStatus[status]
+          ProjectStatus[status],
+          roleRequirements.map(r => ({ role: Role[r.role], needed: r.needed, accepted: 0 }))
         )
         .accounts({
           project: projectPDA,
@@ -269,7 +281,41 @@ export default function ProjectCreate() {
         </div>
       </div>
 
-      {/* Description */}
+      {/* Role Requirements */}
+      <div className="mb-4">
+        <label className="block text-gray-300 mb-2 font-semibold">Contributor Roles Needed (optional)</label>
+        <div className="space-y-2">
+          {Object.keys(Role).map((roleKey) => {
+            const existing = roleRequirements.find(r => r.role === roleKey);
+            return (
+              <div key={roleKey} className="flex items-center space-x-2">
+                <input
+                  type="number"
+                  min="0"
+                  max="5"
+                  value={existing?.needed || 0}
+                  onChange={(e) => {
+                    const needed = parseInt(e.target.value) || 0;
+                    setRoleRequirements(prev => {
+                      const filtered = prev.filter(r => r.role !== roleKey);
+                      if (needed > 0) {
+                        return [...filtered, { role: roleKey as keyof typeof Role, needed }];
+                      }
+                      return filtered;
+                    });
+                  }}
+                  className="w-16 bg-gray-700 text-white rounded px-2 py-1 text-sm"
+                  placeholder="0"
+                />
+                <span className="text-gray-300 text-sm">{roleKey}</span>
+              </div>
+            );
+          })}
+        </div>
+        <p className="text-xs text-gray-500 mt-1">Specify how many contributors you need for each role (max 5 per role, total roles will be limited)</p>
+      </div>
+
+      {/* Project Description */}
       <div className="mb-4">
         <label className="block text-gray-300 mb-2 font-semibold">Description *</label>
         <textarea

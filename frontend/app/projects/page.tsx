@@ -75,6 +75,11 @@ export default function ProjectsPage() {
       const intent = 'Looking for collaborators to build modules and improve the UI/UX. Open to mentorship and long-term contributors.';
       const level = { intermediate: {} };
       const status = { inProgress: {} };
+      const roleRequirements = [
+        { role: { Frontend: {} }, needed: 2, accepted: 0 },
+        { role: { Backend: {} }, needed: 1, accepted: 0 },
+        { role: { Fullstack: {} }, needed: 1, accepted: 0 },
+      ];
 
       // Derive PDA
       const { getProjectPDA } = await import('../utils/programHelpers');
@@ -82,7 +87,7 @@ export default function ProjectsPage() {
       const [projectPDA] = await getProjectPDA(publicKey as any, name);
 
       await (program as any).methods
-        .createProject(name, description, github, logoHash, techStack, needs, intent, level, status)
+        .createProject(name, description, github, logoHash, techStack, needs, intent, level, status, roleRequirements)
         .accounts({ project: projectPDA, user: userPda, creator: publicKey, systemProgram: SystemProgram.programId })
         .rpc();
 

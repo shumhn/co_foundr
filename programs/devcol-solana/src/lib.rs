@@ -219,6 +219,7 @@ pub struct DeleteCollabRequest<'info> {
         collab_intent: String,
         collaboration_level: CollaborationLevel,
         project_status: ProjectStatus,
+        required_roles: Vec<RoleRequirement>,
     ) -> Result<()> {
         require!(name.len() <= 50, ErrorCode::NameTooLong);
         require!(description.len() <= 1000, ErrorCode::DescriptionTooLong);
@@ -226,8 +227,10 @@ pub struct DeleteCollabRequest<'info> {
         require!(tech_stack.len() <= 12, ErrorCode::TechTagCountExceeded);
         require!(contribution_needs.len() <= 10, ErrorCode::NeedTagCountExceeded);
         require!(collab_intent.len() <= 300, ErrorCode::CollabIntentTooLong);
+        require!(required_roles.len() <= 8, ErrorCode::TooManyRoles);
         for t in tech_stack.iter() { require!(t.len() <= 24, ErrorCode::TechTagTooLong); }
         for n in contribution_needs.iter() { require!(n.len() <= 24, ErrorCode::NeedTagTooLong); }
+        for r in required_roles.iter() { require!(r.needed > 0 && r.needed <= 10, ErrorCode::InvalidRoleCount); }
 
         let project = &mut ctx.accounts.project;
         let clock = Clock::get()?;
@@ -247,6 +250,7 @@ pub struct DeleteCollabRequest<'info> {
         project.contributors_count = 1; // Creator is first contributor
         project.is_active = true;
         project.bump = ctx.bumps.project;
+        project.required_roles = required_roles;
 
         msg!("Project created: {} by {}", project.name, project.creator);
         Ok(())
@@ -316,8 +320,21 @@ pub struct DeleteCollabRequest<'info> {
     pub fn send_collab_request(
         ctx: Context<SendCollabRequest>,
         message: String,
+        desired_role: Option<Role>,
     ) -> Result<()> {
         require!(message.len() <= 500, ErrorCode::MessageTooLong);
+
+        let project = &ctx.accounts.project;
+        
+        // If roles are defined on the project and a role is specified, validate capacity
+        if let Some(ref role) = desired_role {
+            if !project.required_roles.is_empty() {
+                let role_req = project.required_roles.iter()
+                    .find(|r| &r.role == role)
+                    .ok_or(ErrorCode::RoleNotFound)?;
+                require!(role_req.accepted < role_req.needed, ErrorCode::RoleSlotFull);
+            }
+        }
 
         let request = &mut ctx.accounts.collab_request;
         request.from = ctx.accounts.sender.key();
@@ -327,6 +344,7 @@ pub struct DeleteCollabRequest<'info> {
         request.status = RequestStatus::Pending;
         request.timestamp = Clock::get()?.unix_timestamp;
         request.bump = ctx.bumps.collab_request;
+        request.desired_role = desired_role;
 
         msg!(
             "Collaboration request sent from {} to {} for project {}",
@@ -344,6 +362,15 @@ pub struct DeleteCollabRequest<'info> {
             request.status == RequestStatus::Pending,
             ErrorCode::InvalidRequestStatus
         );
+
+        // Increment accepted count for the role if specified
+        if let Some(ref role) = request.desired_role {
+            let project = &mut ctx.accounts.project;
+            if let Some(role_req) = project.required_roles.iter_mut().find(|r| &r.role == role) {
+                require!(role_req.accepted < role_req.needed, ErrorCode::RoleSlotFull);
+                role_req.accepted += 1;
+            }
+        }
 
         request.status = RequestStatus::Accepted;
         msg!("Collaboration request accepted: {:?}", request.key());
@@ -518,6 +545,13 @@ pub struct UpdateCollabRequest<'info> {
     
     /// CHECK: This is the 'to' address that must match
     pub to: AccountInfo<'info>,
+    
+    #[account(
+        mut,
+        seeds = [b"project", project.creator.as_ref(), project.name.as_bytes()],
+        bump = project.bump
+    )]
+    pub project: Account<'info, Project>,
 }
 
 #[derive(Accounts)]
@@ -597,8 +631,11 @@ pub struct Project {
     pub contributors_count: u16,                // 2 bytes
     pub is_active: bool,                        // 1 byte
     pub bump: u8,                               // 1 byte
+    // Role-based contribution slots (max 8 roles)
+    #[max_len(8)]
+    pub required_roles: Vec<RoleRequirement>,   // 4 + (3 * 8) = 28 bytes max
 }
-// Total: ~<= 4KB (well under limit with tagged vectors)
+// Total: ~<= 4KB (well under limit with tagged vectors + roles)
 
 #[account]
 #[derive(InitSpace)]
@@ -611,10 +648,29 @@ pub struct CollaborationRequest {
     pub status: RequestStatus,    // 1 byte
     pub timestamp: i64,           // 8 bytes
     pub bump: u8,                 // 1 byte
+    pub desired_role: Option<Role>, // 2 bytes (1 discriminant + 1 enum)
 }
-// Total: ~610 bytes (well under 4KB)
+// Total: ~612 bytes (well under 4KB)
 
 // ==================== ENUMS ====================
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
+pub enum Role {
+    Frontend,
+    Backend,
+    Fullstack,
+    DevOps,
+    QA,
+    Designer,
+    PM,
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
+pub struct RoleRequirement {
+    pub role: Role,
+    pub needed: u8,
+    pub accepted: u8,
+}
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
 pub enum RequestStatus {
@@ -708,4 +764,16 @@ pub enum ErrorCode {
     
     #[msg("Invalid request status for this operation")]
     InvalidRequestStatus,
+    
+    #[msg("Too many roles (max 8)")]
+    TooManyRoles,
+    
+    #[msg("Role count must be between 1 and 10")]
+    InvalidRoleCount,
+    
+    #[msg("Role not found in project requirements")]
+    RoleNotFound,
+    
+    #[msg("Role slot is full (all positions filled)")]
+    RoleSlotFull,
 }

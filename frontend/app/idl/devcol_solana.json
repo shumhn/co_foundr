@@ -1,5 +1,5 @@
 {
-  "address": "5BfnY1239UULVqKDtoaHGMyGhvc6DfUK1uZVC7ZEk29D",
+  "address": "8LPmPiGm4FnNNrwmxMMKjr6fTFYAd8idxibcz1Cmq8Uu",
   "metadata": {
     "name": "devcol_solana",
     "version": "0.1.0",
@@ -70,6 +70,36 @@
           "relations": [
             "collab_request"
           ]
+        },
+        {
+          "name": "project",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  106,
+                  101,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "project.creator",
+                "account": "Project"
+              },
+              {
+                "kind": "account",
+                "path": "project.name",
+                "account": "Project"
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -194,6 +224,16 @@
           "type": {
             "defined": {
               "name": "ProjectStatus"
+            }
+          }
+        },
+        {
+          "name": "required_roles",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "RoleRequirement"
+              }
             }
           }
         }
@@ -514,6 +554,36 @@
           "relations": [
             "collab_request"
           ]
+        },
+        {
+          "name": "project",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  106,
+                  101,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "project.creator",
+                "account": "Project"
+              },
+              {
+                "kind": "account",
+                "path": "project.name",
+                "account": "Project"
+              }
+            ]
+          }
         }
       ],
       "args": []
@@ -586,6 +656,16 @@
         {
           "name": "message",
           "type": "string"
+        },
+        {
+          "name": "desired_role",
+          "type": {
+            "option": {
+              "defined": {
+                "name": "Role"
+              }
+            }
+          }
         }
       ]
     },
@@ -1076,6 +1156,26 @@
       "code": 6016,
       "name": "InvalidRequestStatus",
       "msg": "Invalid request status for this operation"
+    },
+    {
+      "code": 6017,
+      "name": "TooManyRoles",
+      "msg": "Too many roles (max 8)"
+    },
+    {
+      "code": 6018,
+      "name": "InvalidRoleCount",
+      "msg": "Role count must be between 1 and 10"
+    },
+    {
+      "code": 6019,
+      "name": "RoleNotFound",
+      "msg": "Role not found in project requirements"
+    },
+    {
+      "code": 6020,
+      "name": "RoleSlotFull",
+      "msg": "Role slot is full (all positions filled)"
     }
   ],
   "types": [
@@ -1135,6 +1235,16 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "desired_role",
+            "type": {
+              "option": {
+                "defined": {
+                  "name": "Role"
+                }
+              }
+            }
           }
         ]
       }
@@ -1240,6 +1350,16 @@
           {
             "name": "bump",
             "type": "u8"
+          },
+          {
+            "name": "required_roles",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "RoleRequirement"
+                }
+              }
+            }
           }
         ]
       }
@@ -1283,6 +1403,59 @@
           },
           {
             "name": "Rejected"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Role",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Frontend"
+          },
+          {
+            "name": "Backend"
+          },
+          {
+            "name": "Fullstack"
+          },
+          {
+            "name": "DevOps"
+          },
+          {
+            "name": "QA"
+          },
+          {
+            "name": "Designer"
+          },
+          {
+            "name": "PM"
+          }
+        ]
+      }
+    },
+    {
+      "name": "RoleRequirement",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "role",
+            "type": {
+              "defined": {
+                "name": "Role"
+              }
+            }
+          },
+          {
+            "name": "needed",
+            "type": "u8"
+          },
+          {
+            "name": "accepted",
+            "type": "u8"
           }
         ]
       }

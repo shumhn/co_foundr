@@ -40,6 +40,7 @@ export default function ProjectDetailPage() {
   const [collabMessage, setCollabMessage] = useState('');
   const [proofGithub, setProofGithub] = useState('');
   const [proofTwitter, setProofTwitter] = useState('');
+  const [desiredRole, setDesiredRole] = useState<string>('');
   const [sending, setSending] = useState(false);
   const [hasProfile, setHasProfile] = useState(false);
   const [profileChecked, setProfileChecked] = useState(false);
@@ -127,6 +128,20 @@ export default function ProjectDetailPage() {
       alert('Please add a short message');
       return;
     }
+
+    // Validate desired role if roles are defined
+    if (account.requiredRoles && account.requiredRoles.length > 0) {
+      if (!desiredRole) {
+        alert('Please select a desired role for this project.');
+        return;
+      }
+      const roleReq = account.requiredRoles.find((r: any) => r.role === desiredRole);
+      if (!roleReq || roleReq.accepted >= roleReq.needed) {
+        alert('Selected role is no longer available. Please choose another.');
+        return;
+      }
+    }
+
     setSending(true);
     try {
       // Combine proofs + message within 500 chars budget
@@ -135,6 +150,7 @@ export default function ProjectDetailPage() {
       if (combined.length > 500) {
         combined = combined.slice(0, 500);
       }
+
       // Derive PDA for collab request
       const [collabRequestPDA] = await PublicKey.findProgramAddress(
         [
@@ -146,7 +162,7 @@ export default function ProjectDetailPage() {
       );
 
       await (program as any).methods
-        .sendCollabRequest(combined)
+        .sendCollabRequest(combined, desiredRole ? { [desiredRole]: {} } : null)
         .accounts({
           collabRequest: collabRequestPDA,
           sender: publicKey,
@@ -159,6 +175,7 @@ export default function ProjectDetailPage() {
       setCollabMessage('');
       setProofGithub('');
       setProofTwitter('');
+      setDesiredRole('');
       // Redirect to Collaboration Inbox
       router.push('/requests');
     } catch (error: any) {
@@ -451,6 +468,30 @@ export default function ProjectDetailPage() {
             </div>
           </div>
 
+          {/* Role Requirements */}
+          {account.requiredRoles && account.requiredRoles.length > 0 && (
+            <div className="bg-gray-800 rounded-lg p-6">
+              <h2 className="text-xl font-bold text-white mb-4">👥 Role Slots</h2>
+              <div className="space-y-3">
+                {account.requiredRoles.map((roleReq: any, idx: number) => {
+                  const isFull = roleReq.accepted >= roleReq.needed;
+                  return (
+                    <div key={idx} className={`flex items-center justify-between p-3 rounded-lg border ${isFull ? 'bg-gray-700 border-gray-600' : 'bg-gray-700 border-green-600'}`}>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-white font-medium">{roleReq.role}</span>
+                        {isFull && <span className="text-xs bg-red-600 text-white px-2 py-1 rounded">Full</span>}
+                      </div>
+                      <div className="text-right">
+                        <div className="text-white font-semibold">{roleReq.accepted}/{roleReq.needed}</div>
+                        <div className="text-xs text-gray-400">slots filled</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           {/* Collaboration Intent */}
           {account.collabIntent && (
             <div className="bg-gradient-to-r from-purple-900 to-blue-900 rounded-lg p-6">
@@ -568,6 +609,30 @@ export default function ProjectDetailPage() {
               </div>
               <p className="text-xs text-gray-500">GitHub shows your work; Twitter/X is for contact.</p>
             </div>
+
+            {/* Role Selection */}
+            {account.requiredRoles && account.requiredRoles.length > 0 && (
+              <div className="mb-4">
+                <label className="block text-gray-300 text-sm mb-2 font-semibold">Desired Role</label>
+                <select
+                  value={desiredRole}
+                  onChange={(e) => setDesiredRole(e.target.value)}
+                  className="w-full bg-gray-700 text-white rounded-lg px-4 py-3"
+                  required
+                >
+                  <option value="">Select a role...</option>
+                  {account.requiredRoles
+                    .filter((roleReq: any) => roleReq.accepted < roleReq.needed)
+                    .map((roleReq: any, idx: number) => (
+                      <option key={idx} value={roleReq.role}>
+                        {roleReq.role} ({roleReq.accepted}/{roleReq.needed} slots filled)
+                      </option>
+                    ))}
+                </select>
+                <p className="text-xs text-gray-500 mt-1">Choose the role you want to fill on this project.</p>
+              </div>
+            )}
+
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCollabModal(false)}

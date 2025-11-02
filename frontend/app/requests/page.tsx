@@ -239,6 +239,11 @@ export default function RequestsPage() {
                     {tw && (
                       <a href={`https://twitter.com/${tw.replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">🐦 @{tw.replace(/^@/, '')}</a>
                     )}
+                    {req.account.desiredRole && (
+                      <span className="bg-purple-900 text-purple-200 px-2 py-1 rounded text-xs font-medium">
+                        🎭 {Object.keys(req.account.desiredRole)[0]}
+                      </span>
+                    )}
                   </div>
                   <div className="mt-2 text-sm text-gray-400">
                     {type === 'received' ? (
