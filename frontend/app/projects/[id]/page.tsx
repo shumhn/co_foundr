@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useAnchorProgram } from '@/app/hooks/useAnchorProgram';
@@ -40,21 +41,53 @@ export default function ProjectDetailPage() {
   const [proofGithub, setProofGithub] = useState('');
   const [proofTwitter, setProofTwitter] = useState('');
   const [sending, setSending] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false);
   // Edit modal state
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editGithub, setEditGithub] = useState('');
   const [editCollabIntent, setEditCollabIntent] = useState('');
+  const [editTechStack, setEditTechStack] = useState(''); // comma-separated tags
+  const [editNeeds, setEditNeeds] = useState(''); // comma-separated tags
   const [editLevel, setEditLevel] = useState<'beginner'|'intermediate'|'advanced'|'allLevels'>('intermediate');
   const [editStatus, setEditStatus] = useState<'justStarted'|'inProgress'|'nearlyComplete'|'completed'|'activeDev'|'onHold'>('inProgress');
   const [updating, setUpdating] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (params.id && program) {
       fetchProject();
     }
   }, [params.id, program]);
+
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!program || !publicKey) {
+        setHasProfile(false);
+        setProfileChecked(true);
+        return;
+      }
+      try {
+        const [userPda] = await PublicKey.findProgramAddress(
+          [Buffer.from('user'), publicKey.toBuffer()],
+          (program as any).programId
+        );
+        const acct = await (program as any).account.user.fetchNullable(userPda);
+        setHasProfile(!!acct);
+      } catch {
+        setHasProfile(false);
+      } finally {
+        setProfileChecked(true);
+      }
+    };
+    checkProfile();
+  }, [program, publicKey]);
+
+  useEffect(() => {
+    try { console.log('[DevCol] showEditModal', showEditModal); } catch {}
+  }, [showEditModal]);
 
   const fetchProject = async () => {
     if (!params.id || !program) return;
@@ -72,15 +105,21 @@ export default function ProjectDetailPage() {
 
   const sendCollabRequest = async () => {
     if (!publicKey || !program || !project) return;
+    if (!hasProfile) {
+      alert('Please create your profile before sending collaboration requests.');
+      router.push('/profile');
+      return;
+    }
     // Basic validation for proofs
     const ghOk = /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?\/?$/.test(proofGithub.trim());
-    const twOk = /^(@)?[A-Za-z0-9_]{1,15}$/.test(proofTwitter.trim());
+    // Accept either Twitter profile URL or handle
+    const twOk = /^(https?:\/\/)?(www\.)?(twitter\.com|x\.com)\/[A-Za-z0-9_]{1,15}\/?$/.test(proofTwitter.trim()) || /^(@)?[A-Za-z0-9_]{1,15}$/.test(proofTwitter.trim());
     if (!ghOk) {
       alert('Please provide a valid GitHub repo or profile URL');
       return;
     }
     if (!twOk) {
-      alert('Please provide a valid Twitter/X handle (e.g. @yourhandle)');
+      alert('Please provide a valid Twitter/X profile URL or handle (e.g. https://twitter.com/yourhandle or @yourhandle)');
       return;
     }
     const body = collabMessage.trim();
@@ -165,10 +204,14 @@ export default function ProjectDetailPage() {
   const isCreator = publicKey?.toString() === account.creator.toString();
 
   const openEdit = () => {
+    // Debug: confirm click handler fires
+    try { console.log('[DevCol] Edit click'); } catch {}
     setEditName(account.name);
     setEditDescription(account.description);
     setEditGithub(account.githubLink);
     setEditCollabIntent(account.collabIntent || '');
+    setEditTechStack((account.techStack || []).map((t:any)=>t.value).join(', '));
+    setEditNeeds((account.contributionNeeds || []).map((t:any)=>t.value).join(', '));
     setEditLevel(collabLevel as any);
     setEditStatus(status as any);
     setShowEditModal(true);
@@ -183,39 +226,65 @@ export default function ProjectDetailPage() {
       const descOpt = editDescription !== account.description ? editDescription : null;
       const githubOpt = editGithub !== account.githubLink ? editGithub : null;
       const intentOpt = editCollabIntent !== (account.collabIntent || '') ? editCollabIntent : null;
+      // Parse tags from comma-separated strings
+      const parseTags = (s: string) => s.split(',').map(t=>t.trim()).filter(Boolean);
+      const newStack = parseTags(editTechStack);
+      const newNeeds = parseTags(editNeeds);
+      // Compare with current
+      const currStack = (account.techStack || []).map((t:any)=>t.value);
+      const currNeeds = (account.contributionNeeds || []).map((t:any)=>t.value);
+      // Validate limits when changed
+      let techStackOpt: string[] | null = null;
+      let needsOpt: string[] | null = null;
+      const arraysEqual = (a:string[], b:string[]) => a.length===b.length && a.every((v,i)=>v===b[i]);
+      if (!arraysEqual(newStack, currStack)) {
+        if (newStack.length > 12) throw new Error('Too many tech stack tags (max 12)');
+        if (newStack.some(t=>t.length>24)) throw new Error('Each tech stack tag must be ≤ 24 chars');
+        techStackOpt = newStack;
+      }
+      if (!arraysEqual(newNeeds, currNeeds)) {
+        if (newNeeds.length > 10) throw new Error('Too many contribution need tags (max 10)');
+        if (newNeeds.some(t=>t.length>24)) throw new Error('Each contribution need tag must be ≤ 24 chars');
+        needsOpt = newNeeds;
+      }
       const levelOpt = editLevel !== collabLevel ? { [editLevel]: {} } as any : null;
       const statusOpt = editStatus !== status ? { [editStatus]: {} } as any : null;
 
       await (program as any).methods
-        .updateProject(nameOpt, descOpt, githubOpt, null, null, intentOpt, levelOpt, statusOpt, null)
+        .updateProject(nameOpt, descOpt, githubOpt, techStackOpt, needsOpt, intentOpt, levelOpt, statusOpt, null)
         .accounts({ project: project.publicKey, creator: publicKey })
         .rpc();
 
       await fetchProject();
       setShowEditModal(false);
     } catch (e:any) {
+      // Surface Anchor error details if present
       console.error('Update project error:', e);
-      alert('❌ Failed to update project: ' + (e.message || 'Unknown error'));
+      const code = e?.error?.errorCode?.code || e?.code || '';
+      const logs = e?.logs ? '\nLogs:\n' + e.logs.join('\n') : '';
+      alert(`❌ Failed to update project: ${e?.message || 'Unknown error'} ${code ? '\nCode: ' + code : ''}${logs}`);
     } finally {
       setUpdating(false);
     }
   };
 
-  const toggleArchive = async () => {
-    if (!publicKey || !program) return;
-    setUpdating(true);
+  const deleteProject = async () => {
+    if (!publicKey || !program || !project) return;
+    if (!confirm('Delete this project permanently and reclaim the rent deposit? This cannot be undone.')) return;
+    setDeleting(true);
     try {
-      const newActive = !account.isActive;
       await (program as any).methods
-        .updateProject(null, null, null, null, null, null, null, null, newActive)
+        .deleteProject()
         .accounts({ project: project.publicKey, creator: publicKey })
         .rpc();
-      await fetchProject();
+      router.push('/projects');
     } catch (e:any) {
-      console.error('Archive project error:', e);
-      alert('❌ Failed to update status: ' + (e.message || 'Unknown error'));
+      console.error('Delete project error:', e);
+      const code = e?.error?.errorCode?.code || e?.code || '';
+      const logs = e?.logs ? '\nLogs:\n' + e.logs.join('\n') : '';
+      alert(`❌ Failed to delete project: ${e?.message || 'Unknown error'} ${code ? '\nCode: ' + code : ''}${logs}`);
     } finally {
-      setUpdating(false);
+      setDeleting(false);
     }
   };
 
@@ -243,14 +312,14 @@ export default function ProjectDetailPage() {
               )}
 
   {/* Edit Project Modal */}
-  {showEditModal && (
-    <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center p-4 z-50">
-      <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full">
+  {showEditModal && typeof window !== 'undefined' && createPortal(
+    <div className="fixed inset-0 bg-black bg-opacity-75 z-50 flex items-start justify-center pt-20 p-4 overflow-y-auto">
+      <div className="bg-gray-800 rounded-lg p-6 max-w-2xl w-full mb-10">
         <h2 className="text-2xl font-bold text-white mb-4">Edit Project</h2>
         <div className="space-y-4">
           <div>
             <label className="block text-gray-300 mb-2 font-semibold">Project Name</label>
-            <input value={editName} onChange={(e)=>setEditName(e.target.value)} maxLength={50} className="w-full bg-gray-700 text-white rounded px-4 py-3" />
+            <input value={editName} onChange={(e)=>setEditName(e.target.value)} maxLength={50} className="w-full bg-gray-700 text-white rounded px-4 py-3 opacity-70 cursor-not-allowed" disabled />
           </div>
           <div>
             <label className="block text-gray-300 mb-2 font-semibold">Description</label>
@@ -263,6 +332,26 @@ export default function ProjectDetailPage() {
           <div>
             <label className="block text-gray-300 mb-2 font-semibold">Collaboration Intent</label>
             <textarea value={editCollabIntent} onChange={(e)=>setEditCollabIntent(e.target.value)} maxLength={300} rows={4} className="w-full bg-gray-700 text-white rounded px-4 py-3" />
+          </div>
+          <div>
+            <label className="block text-gray-300 mb-2 font-semibold">Tech Stack (comma-separated, max 12)</label>
+            <input
+              value={editTechStack}
+              onChange={(e)=>setEditTechStack(e.target.value)}
+              placeholder="Solana, Anchor, React, TypeScript"
+              className="w-full bg-gray-700 text-white rounded px-4 py-3"
+            />
+            <p className="text-xs text-gray-500 mt-1">Each tag ≤ 24 chars.</p>
+          </div>
+          <div>
+            <label className="block text-gray-300 mb-2 font-semibold">Contribution Needs (comma-separated, max 10)</label>
+            <input
+              value={editNeeds}
+              onChange={(e)=>setEditNeeds(e.target.value)}
+              placeholder="Frontend, Smart Contract, Docs"
+              className="w-full bg-gray-700 text-white rounded px-4 py-3"
+            />
+            <p className="text-xs text-gray-500 mt-1">Each tag ≤ 24 chars.</p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
@@ -292,7 +381,8 @@ export default function ProjectDetailPage() {
           <button onClick={saveEdits} disabled={updating} className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-semibold disabled:opacity-50">{updating? '⏳ Saving...' : '💾 Save Changes'}</button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )}
             </div>
             <div>
@@ -400,28 +490,40 @@ export default function ProjectDetailPage() {
 
           {/* Actions */}
           {isCreator ? (
-            <div className="space-y-3">
+            <div className="space-y-3 pointer-events-auto relative z-10">
               <button
                 onClick={openEdit}
-                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold"
+                className="w-full bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold relative z-10"
               >
                 ✏️ Edit Project
               </button>
               <button
-                onClick={toggleArchive}
-                disabled={updating}
-                className={`w-full px-6 py-3 rounded-lg font-semibold text-white ${account.isActive ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'}`}
+                onClick={deleteProject}
+                disabled={deleting}
+                className="w-full px-6 py-3 rounded-lg font-semibold text-white relative z-10 bg-red-600 hover:bg-red-700 disabled:opacity-50"
               >
-                {updating ? '⏳ Updating...' : account.isActive ? '🗑️ Archive Project' : '✅ Unarchive Project'}
+                {deleting ? '⏳ Deleting...' : '🗑️ Delete Project'}
               </button>
             </div>
           ) : publicKey ? (
-            <button
-              onClick={() => setShowCollabModal(true)}
-              className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-lg font-semibold text-lg"
-            >
-              🤝 Send Collaboration Request
-            </button>
+            hasProfile ? (
+              <button
+                onClick={() => setShowCollabModal(true)}
+                className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-4 rounded-lg font-semibold text-lg"
+              >
+                🤝 Send Collaboration Request
+              </button>
+            ) : (
+              <Link href="/profile">
+                <button
+                  className="w-full bg-gray-700 hover:bg-gray-600 text-white px-6 py-4 rounded-lg font-semibold text-lg"
+                  disabled={!profileChecked}
+                  title="Create your profile to send collaboration requests"
+                >
+                  👤 Create Your Profile to Send Requests
+                </button>
+              </Link>
+            )
           ) : null}
         </div>
       </div>
@@ -443,6 +545,29 @@ export default function ProjectDetailPage() {
               placeholder="Hi! I'd love to collaborate on this project because..."
             />
             <div className="text-xs text-gray-500 mb-4">{collabMessage.length}/500 characters</div>
+
+            {/* Proof of work fields */}
+            <div className="space-y-3 mb-4">
+              <div>
+                <label className="block text-gray-300 text-sm mb-1 font-semibold">Proof of Work (GitHub)</label>
+                <input
+                  value={proofGithub}
+                  onChange={(e) => setProofGithub(e.target.value)}
+                  placeholder="https://github.com/yourusername/your-repo"
+                  className="w-full bg-gray-700 text-white rounded-lg px-4 py-3"
+                />
+              </div>
+              <div>
+                <label className="block text-gray-300 text-sm mb-1 font-semibold">Contact (Twitter/X)</label>
+                <input
+                  value={proofTwitter}
+                  onChange={(e) => setProofTwitter(e.target.value)}
+                  placeholder="https://twitter.com/yourhandle or @yourhandle"
+                  className="w-full bg-gray-700 text-white rounded-lg px-4 py-3"
+                />
+              </div>
+              <p className="text-xs text-gray-500">GitHub shows your work; Twitter/X is for contact.</p>
+            </div>
             <div className="flex gap-3">
               <button
                 onClick={() => setShowCollabModal(false)}
@@ -452,7 +577,7 @@ export default function ProjectDetailPage() {
               </button>
               <button
                 onClick={sendCollabRequest}
-                disabled={!collabMessage.trim() || sending}
+                disabled={!collabMessage.trim() || !proofGithub.trim() || !proofTwitter.trim() || sending}
                 className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-4 py-3 rounded-lg font-semibold disabled:opacity-50"
               >
                 {sending ? '⏳ Sending...' : '✉️ Send Request'}

@@ -1,5 +1,5 @@
 {
-  "address": "jMoPDACzrw3J76eRCgXzb61vZh28nDp4WKidr4BFKA6",
+  "address": "5BfnY1239UULVqKDtoaHGMyGhvc6DfUK1uZVC7ZEk29D",
   "metadata": {
     "name": "devcol_solana",
     "version": "0.1.0",
@@ -114,6 +114,26 @@
               {
                 "kind": "arg",
                 "path": "name"
+              }
+            ]
+          }
+        },
+        {
+          "name": "user",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  117,
+                  115,
+                  101,
+                  114
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
               }
             ]
           }
@@ -256,6 +276,129 @@
           "type": "string"
         }
       ]
+    },
+    {
+      "name": "delete_collab_request",
+      "docs": [
+        "Delete a resolved collaboration request (only by recipient after Accept/Reject)"
+      ],
+      "discriminator": [
+        193,
+        172,
+        38,
+        156,
+        137,
+        92,
+        239,
+        126
+      ],
+      "accounts": [
+        {
+          "name": "collab_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  98,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "collab_request.from",
+                "account": "CollaborationRequest"
+              },
+              {
+                "kind": "account",
+                "path": "collab_request.project",
+                "account": "CollaborationRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "project_owner",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "to",
+          "relations": [
+            "collab_request"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "delete_project",
+      "docs": [
+        "Permanently delete a project and refund lamports to the creator"
+      ],
+      "discriminator": [
+        225,
+        5,
+        3,
+        226,
+        80,
+        93,
+        171,
+        122
+      ],
+      "accounts": [
+        {
+          "name": "project",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  106,
+                  101,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "account",
+                "path": "project.name",
+                "account": "Project"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "project"
+          ]
+        }
+      ],
+      "args": []
     },
     {
       "name": "delete_user",
@@ -437,6 +580,74 @@
         {
           "name": "system_program",
           "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "message",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "update_collab_request",
+      "docs": [
+        "Update message of a pending collaboration request (only by sender)"
+      ],
+      "discriminator": [
+        23,
+        161,
+        22,
+        78,
+        14,
+        253,
+        6,
+        23
+      ],
+      "accounts": [
+        {
+          "name": "collab_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  98,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sender"
+              },
+              {
+                "kind": "account",
+                "path": "collab_request.project",
+                "account": "CollaborationRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sender",
+          "docs": [
+            "The sender who created the request"
+          ],
+          "writable": true,
+          "signer": true
         }
       ],
       "args": [
@@ -672,6 +883,71 @@
           }
         }
       ]
+    },
+    {
+      "name": "withdraw_collab_request",
+      "docs": [
+        "Withdraw a pending collaboration request (closes account; only by sender)"
+      ],
+      "discriminator": [
+        99,
+        42,
+        131,
+        8,
+        204,
+        179,
+        147,
+        180
+      ],
+      "accounts": [
+        {
+          "name": "collab_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  98,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sender"
+              },
+              {
+                "kind": "account",
+                "path": "project"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "project",
+          "relations": [
+            "collab_request"
+          ]
+        }
+      ],
+      "args": []
     }
   ],
   "accounts": [

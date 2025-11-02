@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { useAnchorProgram } from '../hooks/useAnchorProgram';
+import { useAnchorProgram, getUserPDA } from '../hooks/useAnchorProgram';
 import { PublicKey } from '@solana/web3.js';
 import Link from 'next/link';
 
@@ -58,6 +58,14 @@ export default function ProjectsPage() {
     if (!program || !publicKey) return;
     setSeeding(true);
     try {
+      // Require user profile
+      const [userPda] = getUserPDA(publicKey);
+      const userAcct = await (program as any).account.user.fetchNullable(userPda);
+      if (!userAcct) {
+        alert('❌ Create your profile first. Redirecting...');
+        window.location.href = '/profile';
+        return;
+      }
       const name = 'DevCol Sample Project';
       const description = 'A sample Web3 collaboration project on Solana. This project demonstrates the full project flow: tech stack, contribution needs, collaboration level, status, and collaboration intent.';
       const github = 'https://github.com/example/sample-repo';
@@ -75,7 +83,7 @@ export default function ProjectsPage() {
 
       await (program as any).methods
         .createProject(name, description, github, logoHash, techStack, needs, intent, level, status)
-        .accounts({ project: projectPDA, creator: publicKey, systemProgram: SystemProgram.programId })
+        .accounts({ project: projectPDA, user: userPda, creator: publicKey, systemProgram: SystemProgram.programId })
         .rpc();
 
       await fetchProjects();

@@ -46,6 +46,30 @@ export default function RequestDetailPage() {
   const [loading, setLoading] = useState(true);
   const [req, setReq] = useState<any | null>(null);
   const [acting, setActing] = useState<'accept' | 'reject' | null>(null);
+  const [usernames, setUsernames] = useState<Record<string, string>>({});
+
+  const shorten = (s: string) => `${s.slice(0, 4)}…${s.slice(-4)}`;
+  const resolveUsername = async (pkStr: string) => {
+    if (!program || !pkStr || usernames[pkStr]) return;
+    try {
+      const wallet = new PublicKey(pkStr);
+      const [userPda] = await PublicKey.findProgramAddress(
+        [Buffer.from('user'), wallet.toBuffer()],
+        (program as any).programId
+      );
+      const acct = await (program as any).account.user.fetchNullable(userPda);
+      const name = (acct?.displayName as string) || (acct?.username as string) || '';
+      setUsernames((m) => ({ ...m, [pkStr]: name }));
+    } catch {}
+  };
+  const Username = ({ pk }: { pk: string }) => {
+    const name = usernames[pk];
+    useEffect(() => {
+      resolveUsername(pk);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pk, program]);
+    return <span>{name ? name : shorten(pk)}</span>;
+  };
 
   const canUse = useMemo(() => !!program && !!publicKey, [program, publicKey]);
 
@@ -160,11 +184,11 @@ export default function RequestDetailPage() {
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-6">
           <div>
             <h2 className="font-semibold text-white mb-2">From</h2>
-            <div className="text-gray-300 break-all">{req.account.from.toString()}</div>
+            <div className="text-gray-300 break-all"><Username pk={req.account.from.toString()} /></div>
           </div>
           <div>
             <h2 className="font-semibold text-white mb-2">To</h2>
-            <div className="text-gray-300 break-all">{req.account.to.toString()}</div>
+            <div className="text-gray-300 break-all"><Username pk={req.account.to.toString()} /></div>
           </div>
         </div>
 

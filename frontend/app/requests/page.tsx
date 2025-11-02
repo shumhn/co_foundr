@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { PublicKey } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useAnchorProgram } from '../hooks/useAnchorProgram';
 
@@ -23,8 +24,95 @@ export default function RequestsPage() {
   const [loading, setLoading] = useState(true);
   const [received, setReceived] = useState<any[]>([]);
   const [sent, setSent] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'received' | 'sent'>('received');
+  const [activeTab, setActiveTab] = useState<'open' | 'received' | 'sent'>('open');
   const [actingId, setActingId] = useState<string | null>(null);
+  const [usernames, setUsernames] = useState<Record<string, string>>({});
+
+  const shorten = (s: string) => `${s.slice(0, 4)}…${s.slice(-4)}`;
+
+  const resolveUsername = async (pkStr: string) => {
+    if (!program) return;
+    if (usernames[pkStr]) return;
+    try {
+      const wallet = new PublicKey(pkStr);
+      const [userPda] = await PublicKey.findProgramAddress(
+        [Buffer.from('user'), wallet.toBuffer()],
+        (program as any).programId
+      );
+      const acct = await (program as any).account.user.fetchNullable(userPda);
+      const name = (acct?.display_name as string) || (acct?.username as string) || '';
+      setUsernames((m: Record<string, string>) => ({ ...m, [pkStr]: name }));
+    } catch {
+      // ignore
+    }
+  };
+
+  const updateMsg = async (req: any) => {
+    if (!program || !publicKey) return;
+    const curr = req.account.message || '';
+    const next = typeof window !== 'undefined' ? window.prompt('Edit message (max 500 chars):', curr) : null;
+    if (next == null) return;
+    const trimmed = next.slice(0, 500);
+    setActingId(req.publicKey.toString());
+    try {
+      await (program as any).methods
+        .updateCollabRequest(trimmed)
+        .accounts({ collabRequest: req.publicKey, sender: publicKey })
+        .rpc();
+      await fetchAll();
+    } catch (e) {
+      console.error('Update collab message error:', e);
+      alert('❌ Failed to update: ' + (e as any)?.message || 'Unknown error');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const withdraw = async (req: any) => {
+    if (!program || !publicKey) return;
+    if (!confirm('Withdraw this pending request?')) return;
+    setActingId(req.publicKey.toString());
+    try {
+      await (program as any).methods
+        .withdrawCollabRequest()
+        .accounts({ collabRequest: req.publicKey, sender: publicKey, project: req.account.project })
+        .rpc();
+      await fetchAll();
+    } catch (e) {
+      console.error('Withdraw collab error:', e);
+      alert('❌ Failed to withdraw: ' + (e as any)?.message || 'Unknown error');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const delRequest = async (req: any) => {
+    if (!program || !publicKey) return;
+    if (!confirm('Delete this resolved request?')) return;
+    setActingId(req.publicKey.toString());
+    try {
+      await (program as any).methods
+        .deleteCollabRequest()
+        .accounts({ collabRequest: req.publicKey, projectOwner: publicKey, to: req.account.to })
+        .rpc();
+      await fetchAll();
+    } catch (e) {
+      console.error('Delete collab error:', e);
+      alert('❌ Failed to delete: ' + (e as any)?.message || 'Unknown error');
+    } finally {
+      setActingId(null);
+    }
+  };
+
+  const Username = ({ pk }: { pk: string }) => {
+    const name = usernames[pk];
+    useEffect(() => {
+      resolveUsername(pk);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pk, program]);
+    if (!name) return <span>{shorten(pk)}</span>;
+    return <span>{name}</span>;
+  };
 
   const canUse = useMemo(() => !!program && !!publicKey, [program, publicKey]);
 
@@ -33,6 +121,8 @@ export default function RequestsPage() {
     setLoading(true);
     try {
       const all = await (program as any).account.collaborationRequest.all();
+      // Sort newest first
+      all.sort((a: any, b: any) => (b.account.timestamp || 0) - (a.account.timestamp || 0));
       const rec = all.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());
       const snt = all.filter((a: any) => a.account.from?.toString?.() === publicKey.toString());
       setReceived(rec);
@@ -83,7 +173,24 @@ export default function RequestsPage() {
     }
   };
 
-  const Section = ({ items, type }: { items: any[]; type: 'received' | 'sent' }) => (
+  function parseProofs(message: string) {
+    const lines = (message || '').split('\n');
+    let gh = '';
+    let tw = '';
+    let start = 0;
+    if (lines[0]?.startsWith('[GH]')) {
+      gh = lines[0].replace('[GH]', '').trim();
+      start = 1;
+    }
+    if (lines[1]?.startsWith('[TW]')) {
+      tw = lines[1].replace('[TW]', '').trim();
+      start = 2;
+    }
+    const body = lines.slice(start).join('\n').trim();
+    return { gh, tw, body };
+  }
+
+  const Section = ({ items, type }: { items: any[]; type: 'open' | 'received' | 'sent' }) => (
     <div>
       {items.length === 0 ? (
         <div className="text-gray-400 bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
@@ -94,6 +201,9 @@ export default function RequestsPage() {
           {items.map((req) => {
             const status = Object.keys(req.account.status)[0];
             const isPending = status === 'pending';
+            const { gh, tw, body } = parseProofs(req.account.message || '');
+            const youAreSender = publicKey?.toString() === req.account.from.toString();
+            const youAreRecipient = publicKey?.toString() === req.account.to.toString();
             return (
               <div
                 key={req.publicKey.toString()}
@@ -121,41 +231,84 @@ export default function RequestsPage() {
                       Project
                     </Link>
                   </div>
-                  <div className="mt-2 text-gray-300 whitespace-pre-wrap">
-                    {req.account.message}
+                  <div className="mt-2 text-gray-300 whitespace-pre-wrap">{body || req.account.message}</div>
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                    {gh && (
+                      <a href={gh} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">🔗 Proof</a>
+                    )}
+                    {tw && (
+                      <a href={`https://twitter.com/${tw.replace(/^@/, '')}`} target="_blank" rel="noopener noreferrer" className="text-blue-400 hover:underline">🐦 @{tw.replace(/^@/, '')}</a>
+                    )}
                   </div>
                   <div className="mt-2 text-sm text-gray-400">
                     {type === 'received' ? (
-                      <>From: {req.account.from.toString()}</>
+                      <>From: <Username pk={req.account.from.toString()} /></>
                     ) : (
-                      <>To: {req.account.to.toString()}</>
+                      <>To: <Username pk={req.account.to.toString()} /></>
                     )}
                   </div>
                 </div>
-                {type === 'received' && (
-                  <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
+                  {/* Recipient actions for pending */}
+                  {youAreRecipient && isPending && (
+                    <>
+                      <button
+                        disabled={actingId === req.publicKey.toString()}
+                        onClick={() => accept(req)}
+                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded disabled:opacity-50"
+                      >
+                        {actingId === req.publicKey.toString() ? 'Processing…' : 'Accept'}
+                      </button>
+                      <button
+                        disabled={actingId === req.publicKey.toString()}
+                        onClick={() => reject(req)}
+                        className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded disabled:opacity-50"
+                      >
+                        Reject
+                      </button>
+                    </>
+                  )}
+                  {/* Sender actions for pending */}
+                  {youAreSender && isPending && (
+                    <>
+                      <button
+                        disabled={actingId === req.publicKey.toString()}
+                        onClick={() => updateMsg(req)}
+                        className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded disabled:opacity-50"
+                      >
+                        Edit
+                      </button>
+                      <button
+                        disabled={actingId === req.publicKey.toString()}
+                        onClick={() => withdraw(req)}
+                        className="bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded disabled:opacity-50"
+                      >
+                        Withdraw
+                      </button>
+                    </>
+                  )}
+                  {/* Recipient delete for resolved */}
+                  {youAreRecipient && !isPending && (
                     <button
-                      disabled={!isPending || actingId === req.publicKey.toString()}
-                      onClick={() => accept(req)}
-                      className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded disabled:opacity-50"
+                      disabled={actingId === req.publicKey.toString()}
+                      onClick={() => delRequest(req)}
+                      className="bg-gray-700 hover:bg-gray-600 text-white px-4 py-2 rounded disabled:opacity-50"
                     >
-                      {actingId === req.publicKey.toString() ? 'Processing…' : 'Accept'}
+                      Delete
                     </button>
-                    <button
-                      disabled={!isPending || actingId === req.publicKey.toString()}
-                      onClick={() => reject(req)}
-                      className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded disabled:opacity-50"
-                    >
-                      Reject
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             );
           })}
         </div>
       )}
     </div>
+  );
+
+  const open = useMemo(
+    () => received.filter((r) => Object.keys(r.account.status)[0] === 'pending'),
+    [received]
   );
 
   if (!publicKey) {
@@ -187,6 +340,16 @@ export default function RequestsPage() {
 
       <div className="mb-6 flex gap-2">
         <button
+          onClick={() => setActiveTab('open')}
+          className={`px-4 py-2 rounded-lg border ${
+            activeTab === 'open'
+              ? 'bg-blue-600 border-blue-600 text-white'
+              : 'bg-gray-800 border-gray-700 text-gray-200'
+          }`}
+        >
+          Open ({open.length})
+        </button>
+        <button
           onClick={() => setActiveTab('received')}
           className={`px-4 py-2 rounded-lg border ${
             activeTab === 'received'
@@ -194,7 +357,7 @@ export default function RequestsPage() {
               : 'bg-gray-800 border-gray-700 text-gray-200'
           }`}
         >
-          Received ({received.filter((r) => Object.keys(r.account.status)[0] === 'pending').length})
+          Received ({received.length})
         </button>
         <button
           onClick={() => setActiveTab('sent')}
@@ -204,12 +367,14 @@ export default function RequestsPage() {
               : 'bg-gray-800 border-gray-700 text-gray-200'
           }`}
         >
-          Sent ({sent.filter((r) => Object.keys(r.account.status)[0] === 'pending').length})
+          Sent ({sent.length})
         </button>
       </div>
 
       {loading ? (
         <div className="text-gray-400">Loading…</div>
+      ) : activeTab === 'open' ? (
+        <Section items={open} type="open" />
       ) : activeTab === 'received' ? (
         <Section items={received} type="received" />
       ) : (

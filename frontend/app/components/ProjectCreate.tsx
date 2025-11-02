@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { SystemProgram } from '@solana/web3.js';
-import { useAnchorProgram } from '../hooks/useAnchorProgram';
+import { useAnchorProgram, getUserPDA } from '../hooks/useAnchorProgram';
 import { getProjectPDA } from '../utils/programHelpers';
 import { uploadImageToIPFS } from '../utils/ipfs';
 
@@ -151,6 +151,15 @@ export default function ProjectCreate() {
 
     setLoading(true);
     try {
+      // Ensure profile exists
+      const [userPda] = getUserPDA(publicKey);
+      const userAcct = await (program as any).account.user.fetchNullable(userPda);
+      if (!userAcct) {
+        alert('❌ You must create your profile before creating a project.');
+        // Redirect to profile page
+        window.location.href = '/profile';
+        return;
+      }
       // Upload logo to IPFS if provided
       let logoHash = '';
       if (logoFile) {
@@ -175,6 +184,7 @@ export default function ProjectCreate() {
         )
         .accounts({
           project: projectPDA,
+          user: userPda,
           creator: publicKey,
           systemProgram: SystemProgram.programId,
         })

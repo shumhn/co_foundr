@@ -1,6 +1,6 @@
 use anchor_lang::prelude::*;
 
-declare_id!("2PHztUTZuAeWx97sLuezfbmWiyKTzYb986Do2Bh338U7");
+declare_id!("5BfnY1239UULVqKDtoaHGMyGhvc6DfUK1uZVC7ZEk29D");
 
 #[program]
 pub mod devcol_solana {
@@ -51,6 +51,84 @@ pub mod devcol_solana {
         msg!("Enhanced user profile created: {}", user.username);
         Ok(())
     }
+
+#[derive(Accounts)]
+pub struct DeleteProject<'info> {
+    #[account(
+        mut,
+        close = creator,
+        seeds = [b"project", creator.key().as_ref(), project.name.as_bytes()],
+        bump = project.bump,
+        has_one = creator
+    )]
+    pub project: Account<'info, Project>,
+
+    #[account(mut)]
+    pub creator: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct UpdateCollabMessage<'info> {
+    #[account(
+        mut,
+        seeds = [
+            b"collab_request",
+            sender.key().as_ref(),
+            collab_request.project.as_ref()
+        ],
+        bump = collab_request.bump,
+        constraint = collab_request.from == sender.key()
+    )]
+    pub collab_request: Account<'info, CollaborationRequest>,
+
+    /// The sender who created the request
+    #[account(mut)]
+    pub sender: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct WithdrawCollabRequest<'info> {
+    #[account(
+        mut,
+        close = sender,
+        seeds = [
+            b"collab_request",
+            sender.key().as_ref(),
+            project.key().as_ref()
+        ],
+        bump = collab_request.bump,
+        has_one = project,
+        constraint = collab_request.from == sender.key()
+    )]
+    pub collab_request: Account<'info, CollaborationRequest>,
+
+    #[account(mut)]
+    pub sender: Signer<'info>,
+
+    pub project: Account<'info, Project>,
+}
+
+#[derive(Accounts)]
+pub struct DeleteCollabRequest<'info> {
+    #[account(
+        mut,
+        close = project_owner,
+        seeds = [
+            b"collab_request",
+            collab_request.from.as_ref(),
+            collab_request.project.as_ref()
+        ],
+        bump = collab_request.bump,
+        has_one = to
+    )]
+    pub collab_request: Account<'info, CollaborationRequest>,
+
+    #[account(mut)]
+    pub project_owner: Signer<'info>,
+
+    /// CHECK: Must match the 'to' address on the request
+    pub to: AccountInfo<'info>,
+}
 
     /// Update user profile with enhanced fields
     pub fn update_user(
@@ -284,6 +362,43 @@ pub mod devcol_solana {
         msg!("Collaboration request rejected: {:?}", request.key());
         Ok(())
     }
+
+    /// Update message of a pending collaboration request (only by sender)
+    pub fn update_collab_request(ctx: Context<UpdateCollabMessage>, message: String) -> Result<()> {
+        require!(message.len() <= 500, ErrorCode::MessageTooLong);
+        let request = &mut ctx.accounts.collab_request;
+        require!(request.status == RequestStatus::Pending, ErrorCode::InvalidRequestStatus);
+        // Sender constraint enforced in context
+        request.message = message;
+        msg!("Collaboration request message updated: {:?}", request.key());
+        Ok(())
+    }
+
+    /// Withdraw a pending collaboration request (closes account; only by sender)
+    pub fn withdraw_collab_request(ctx: Context<WithdrawCollabRequest>) -> Result<()> {
+        let request = &ctx.accounts.collab_request;
+        require!(request.status == RequestStatus::Pending, ErrorCode::InvalidRequestStatus);
+        // Account will be closed to sender via context 'close'
+        msg!("Collaboration request withdrawn: {:?}", request.key());
+        Ok(())
+    }
+
+    /// Delete a resolved collaboration request (only by recipient after Accept/Reject)
+    pub fn delete_collab_request(ctx: Context<DeleteCollabRequest>) -> Result<()> {
+        let request = &ctx.accounts.collab_request;
+        require!(request.status != RequestStatus::Pending, ErrorCode::InvalidRequestStatus);
+        // Account will be closed to project_owner via context 'close'
+        msg!("Collaboration request deleted: {:?}", request.key());
+        Ok(())
+    }
+
+    /// Permanently delete a project and refund lamports to the creator
+    pub fn delete_project(ctx: Context<DeleteProject>) -> Result<()> {
+        // The account is closed to the creator by the context attribute
+        let pk = ctx.accounts.project.key();
+        msg!("Project deleted: {:?}", pk);
+        Ok(())
+    }
 }
 
 // ==================== ACCOUNT CONTEXTS ====================
@@ -333,10 +448,17 @@ pub struct CreateProject<'info> {
         bump
     )]
     pub project: Account<'info, Project>,
-    
+
+    // Require that the creator already has a User profile
+    #[account(
+        seeds = [b"user", creator.key().as_ref()],
+        bump = user.bump,
+    )]
+    pub user: Account<'info, User>,
+
     #[account(mut)]
     pub creator: Signer<'info>,
-    
+
     pub system_program: Program<'info, System>,
 }
 

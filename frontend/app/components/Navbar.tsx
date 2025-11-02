@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { WalletMultiButton } from '@solana/wallet-adapter-react-ui';
 import { usePathname } from 'next/navigation';
-import { useAnchorProgram } from '../hooks/useAnchorProgram';
+import { useAnchorProgram, getUserPDA } from '../hooks/useAnchorProgram';
 
 export default function Navbar() {
   const { publicKey } = useWallet();
@@ -13,45 +13,69 @@ export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const { program, provider } = useAnchorProgram();
   const [pendingCount, setPendingCount] = useState(0);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [profileChecked, setProfileChecked] = useState(false);
 
   const canQuery = useMemo(() => !!program && !!publicKey, [program, publicKey]);
 
+  const checkProfile = async () => {
+    if (!program || !publicKey) {
+      setHasProfile(false);
+      setProfileChecked(true);
+      return;
+    }
+    try {
+      const [userPda] = getUserPDA(publicKey);
+      const userAcct = await (program as any).account.user.fetchNullable(userPda);
+      setHasProfile(!!userAcct);
+    } catch {
+      setHasProfile(false);
+    } finally {
+      setProfileChecked(true);
+    }
+  };
+
+  // Throttle refresh to avoid RPC bursts
+  const refreshInFlight = useRef(false);
   const refreshPending = async () => {
+    if (refreshInFlight.current) return;
+    refreshInFlight.current = true;
     try {
       if (!program || !publicKey) return;
-      const all = await (program as any).account.collaborationRequest.all();
-      const rec = all.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());
+      // Filter by recipient (to) using memcmp to reduce data size
+      const filters = [
+        { memcmp: { offset: 8 + 32, bytes: publicKey.toBase58() } }, // 8 disc + 32 from = start of `to`
+      ];
+      const rec = await (program as any).account.collaborationRequest.all(filters);
       const pending = rec.filter((r: any) => Object.keys(r.account.status)[0] === 'pending').length;
       setPendingCount(pending);
     } catch (e) {
       // eslint-disable-next-line no-console
       console.warn('Failed to refresh pending requests count', e);
+    } finally {
+      refreshInFlight.current = false;
     }
   };
 
   useEffect(() => {
     if (!canQuery) {
       setPendingCount(0);
+      setHasProfile(false);
+      setProfileChecked(false);
       return;
     }
+    checkProfile();
     refreshPending();
-    // Subscribe to program account changes and refresh
-    const conn = provider?.connection;
-    let subId: number | null = null;
-    if (conn && program) {
-      try {
-        subId = conn.onProgramAccountChange((program as any).programId, () => {
-          // Debounce slightly
-          setTimeout(() => refreshPending(), 200);
-        });
-      } catch {}
-    }
-    const interval = setInterval(refreshPending, 15000);
+    // Moderate polling (20s) + focus/visibility-triggered refresh
+    const interval = setInterval(refreshPending, 20000);
+    const onFocus = () => refreshPending();
+    const onVisibility = () => { if (document.visibilityState === 'visible') refreshPending(); };
+    try { window.addEventListener('focus', onFocus); } catch {}
+    try { document.addEventListener('visibilitychange', onVisibility); } catch {}
     return () => {
       clearInterval(interval);
-      if (conn && subId !== null) {
-        try { conn.removeProgramAccountChangeListener(subId); } catch {}
-      }
+      try { window.removeEventListener('focus', onFocus); } catch {}
+      try { document.removeEventListener('visibilitychange', onVisibility); } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canQuery]);
@@ -116,14 +140,25 @@ export default function Navbar() {
               </Link>
             )}
             
-            {publicKey && (
-              <Link
-                href="/projects/new"
-                className="ml-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white transition-all shadow-lg"
-              >
-                <span className="mr-2">🚀</span>
-                Create Project
-              </Link>
+            {publicKey && profileChecked && (
+              hasProfile ? (
+                <Link
+                  href="/projects/new"
+                  className="ml-2 px-4 py-2 rounded-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white transition-all shadow-lg"
+                >
+                  <span className="mr-2">🚀</span>
+                  Create Project
+                </Link>
+              ) : (
+                <Link
+                  href="/profile"
+                  className="ml-2 px-4 py-2 rounded-lg font-medium bg-yellow-600 hover:bg-yellow-700 text-white transition-all"
+                  title="Create your profile first"
+                >
+                  <span className="mr-2">👤</span>
+                  Create Profile
+                </Link>
+              )
             )}
           </div>
 
@@ -190,15 +225,26 @@ export default function Navbar() {
               </Link>
             )}
             
-            {publicKey && (
-              <Link
-                href="/projects/new"
-                onClick={() => setMobileMenuOpen(false)}
-                className="block px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white"
-              >
-                <span className="mr-2">🚀</span>
-                Create Project
-              </Link>
+            {publicKey && profileChecked && (
+              hasProfile ? (
+                <Link
+                  href="/projects/new"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-4 py-3 rounded-lg font-medium bg-gradient-to-r from-green-600 to-emerald-600 text-white"
+                >
+                  <span className="mr-2">🚀</span>
+                  Create Project
+                </Link>
+              ) : (
+                <Link
+                  href="/profile"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="block px-4 py-3 rounded-lg font-medium bg-yellow-600 text-white"
+                >
+                  <span className="mr-2">👤</span>
+                  Create Profile First
+                </Link>
+              )
             )}
           </div>
         )}
