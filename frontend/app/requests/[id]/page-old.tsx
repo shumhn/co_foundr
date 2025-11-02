@@ -22,6 +22,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 function parseProofs(message: string) {
+  // Expect header lines:
+  // [GH] <url>\n[TW] <handle>\n\n<body>
   const lines = message.split('\n');
   let gh = '';
   let tw = '';
@@ -51,31 +53,27 @@ export default function RequestDetailPage() {
   const [usernames, setUsernames] = useState<Record<string, string>>({});
 
   const shorten = (s: string) => `${s.slice(0, 4)}…${s.slice(-4)}`;
-  
-  // Batch resolve usernames to reduce RTTs
-  const resolveUsernames = async (pks: string[]) => {
-    if (!program || pks.length === 0) return;
-    const unique = [...new Set(pks)].filter(pk => !usernames[pk]);
-    if (unique.length === 0) return;
+  const resolveUsername = async (pkStr: string) => {
+    if (!program || !pkStr || usernames[pkStr]) return;
     try {
-      const pdas = await Promise.all(
-        unique.map(pk => PublicKey.findProgramAddress([Buffer.from('user'), new PublicKey(pk).toBuffer()], (program as any).programId))
+      const wallet = new PublicKey(pkStr);
+      const [userPda] = await PublicKey.findProgramAddress(
+        [Buffer.from('user'), wallet.toBuffer()],
+        (program as any).programId
       );
-      const accounts = await (program as any).provider.connection.getMultipleAccountsInfo(pdas.map(([pda]: any) => pda), 'processed');
-      const names: Record<string, string> = {};
-      accounts.forEach((info: any, i: number) => {
-        if (info) {
-          try {
-            const decoded = (program as any).coder.accounts.decode('User', info.data);
-            names[unique[i]] = (decoded.displayName as string) || (decoded.username as string) || '';
-          } catch {}
-        }
-      });
-      setUsernames(prev => ({ ...prev, ...names }));
+      const acct = await (program as any).account.user.fetchNullable(userPda);
+      const name = (acct?.displayName as string) || (acct?.username as string) || '';
+      setUsernames((m) => ({ ...m, [pkStr]: name }));
     } catch {}
   };
-  
-  const Username = ({ pk }: { pk: string }) => <span>{usernames[pk] || shorten(pk)}</span>;
+  const Username = ({ pk }: { pk: string }) => {
+    const name = usernames[pk];
+    useEffect(() => {
+      resolveUsername(pk);
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [pk, program]);
+    return <span>{name ? name : shorten(pk)}</span>;
+  };
 
   const canUse = useMemo(() => !!program && !!publicKey, [program, publicKey]);
 
@@ -85,16 +83,14 @@ export default function RequestDetailPage() {
       setLoading(true);
       try {
         const k = new PublicKey(params.id as string);
-        const [account, info] = await Promise.all([
-          (program as any).account.collaborationRequest.fetch(k, 'processed'),
-          (program as any).provider.connection.getAccountInfo(k, 'processed')
-        ]);
+        const account = await (program as any).account.collaborationRequest.fetch(k);
         setReq({ publicKey: k, account });
-        const owner = info?.owner?.toBase58?.();
-        const current = (program as any).programId?.toBase58?.();
-        setIsLegacy(!!owner && !!current && owner !== current);
-        // Batch resolve usernames
-        await resolveUsernames([account.from.toString(), account.to.toString()]);
+        try {
+          const info = await (program as any).provider.connection.getAccountInfo(k);
+          const owner = info?.owner?.toBase58?.();
+          const current = (program as any).programId?.toBase58?.();
+          setIsLegacy(!!owner && !!current && owner !== current);
+        } catch {}
       } catch (e) {
         console.error('Fetch request error:', e);
       } finally {
@@ -108,7 +104,7 @@ export default function RequestDetailPage() {
     if (!canUse || !req) return;
     // Hard preflight: block legacy requests owned by old program
     try {
-      const info = await (program as any).provider.connection.getAccountInfo(req.publicKey, 'processed');
+      const info = await (program as any).provider.connection.getAccountInfo(req.publicKey);
       const owner = info?.owner?.toBase58?.();
       const current = (program as any).programId?.toBase58?.();
       if (owner && current && owner !== current) {
@@ -118,8 +114,6 @@ export default function RequestDetailPage() {
       }
     } catch {}
     setActing('accept');
-    // Optimistic UI
-    setReq((prev: any) => prev ? { ...prev, account: { ...prev.account, status: { accepted: {} } } } : prev);
     try {
       await rpcWithRetry(() =>
         (program as any).methods
@@ -127,15 +121,12 @@ export default function RequestDetailPage() {
           .accounts({ collabRequest: req.publicKey, to: publicKey })
           .rpc()
       );
-      // Confirmed: refetch to reconcile
-      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'confirmed');
+      // Refresh
+      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey);
       setReq({ publicKey: req.publicKey, account });
     } catch (e) {
       console.error('Accept collab error:', e);
       alert('❌ Failed to accept: ' + (e as any)?.message || 'Unknown error');
-      // Rollback optimistic
-      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'processed');
-      setReq({ publicKey: req.publicKey, account });
     } finally {
       setActing(null);
     }
@@ -145,7 +136,7 @@ export default function RequestDetailPage() {
     if (!canUse || !req) return;
     // Hard preflight: block legacy requests owned by old program
     try {
-      const info = await (program as any).provider.connection.getAccountInfo(req.publicKey, 'processed');
+      const info = await (program as any).provider.connection.getAccountInfo(req.publicKey);
       const owner = info?.owner?.toBase58?.();
       const current = (program as any).programId?.toBase58?.();
       if (owner && current && owner !== current) {
@@ -155,8 +146,6 @@ export default function RequestDetailPage() {
       }
     } catch {}
     setActing('reject');
-    // Optimistic UI
-    setReq((prev: any) => prev ? { ...prev, account: { ...prev.account, status: { rejected: {} } } } : prev);
     try {
       await rpcWithRetry(() =>
         (program as any).methods
@@ -164,13 +153,11 @@ export default function RequestDetailPage() {
           .accounts({ collabRequest: req.publicKey, to: publicKey })
           .rpc()
       );
-      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'confirmed');
+      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey);
       setReq({ publicKey: req.publicKey, account });
     } catch (e) {
       console.error('Reject collab error:', e);
       alert('❌ Failed to reject: ' + (e as any)?.message || 'Unknown error');
-      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'processed');
-      setReq({ publicKey: req.publicKey, account });
     } finally {
       setActing(null);
     }
@@ -180,7 +167,7 @@ export default function RequestDetailPage() {
     if (!canUse || !req) return;
     // Hard preflight: block legacy requests owned by old program
     try {
-      const info = await (program as any).provider.connection.getAccountInfo(req.publicKey, 'processed');
+      const info = await (program as any).provider.connection.getAccountInfo(req.publicKey);
       const owner = info?.owner?.toBase58?.();
       const current = (program as any).programId?.toBase58?.();
       if (owner && current && owner !== current) {
@@ -190,8 +177,6 @@ export default function RequestDetailPage() {
       }
     } catch {}
     setActing('review');
-    // Optimistic UI
-    setReq((prev: any) => prev ? { ...prev, account: { ...prev.account, status: { underReview: {} } } } : prev);
     try {
       await rpcWithRetry(() =>
         (program as any).methods
@@ -199,13 +184,11 @@ export default function RequestDetailPage() {
           .accounts({ collabRequest: req.publicKey, projectOwner: publicKey, to: req.account.to, project: req.account.project })
           .rpc()
       );
-      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'confirmed');
+      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey);
       setReq({ publicKey: req.publicKey, account });
     } catch (e) {
       console.error('Mark under review error:', e);
       alert('❌ Failed to mark under review: ' + (e as any)?.message || 'Unknown error');
-      const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'processed');
-      setReq({ publicKey: req.publicKey, account });
     } finally {
       setActing(null);
     }

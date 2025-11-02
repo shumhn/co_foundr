@@ -2,8 +2,8 @@
 
 import { useMemo } from 'react';
 import { AnchorProvider, Program } from '@coral-xyz/anchor';
-import { useConnection, useWallet } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { Connection, PublicKey, clusterApiUrl } from '@solana/web3.js';
 import rawIdl from '../idl/devcol_solana.json';
 import type { Idl } from '@coral-xyz/anchor';
 import type { DeVColProgram } from '../types/program';
@@ -12,18 +12,14 @@ import type { DeVColProgram } from '../types/program';
 export const PROGRAM_ID = new PublicKey('F1z678h8UgZin1Dmt3iEAiR9vF7KWytkaoeGd2hgbBRn');
 
 export function useAnchorProgram() {
-  const { connection } = useConnection();
   const wallet = useWallet();
 
   const provider = useMemo(() => {
     if (!wallet.publicKey) return null;
-    
-    return new AnchorProvider(
-      connection,
-      wallet as any,
-      { commitment: 'confirmed' }
-    );
-  }, [connection, wallet]);
+    const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || clusterApiUrl('devnet');
+    const connection = new Connection(endpoint, 'confirmed');
+    return new AnchorProvider(connection, wallet as any, { commitment: 'confirmed' });
+  }, [wallet]);
 
   const program = useMemo(() => {
     if (!provider) return null;

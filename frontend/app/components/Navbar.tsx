@@ -67,7 +67,7 @@ export default function Navbar() {
     checkProfile();
     refreshPending();
     // Moderate polling (20s) + focus/visibility-triggered refresh
-    const interval = setInterval(refreshPending, 20000);
+    const interval = setInterval(refreshPending, 60000);
     const onFocus = () => refreshPending();
     const onVisibility = () => { if (document.visibilityState === 'visible') refreshPending(); };
     try { window.addEventListener('focus', onFocus); } catch {}

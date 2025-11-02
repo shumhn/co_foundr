@@ -76,9 +76,9 @@ export default function ProjectsPage() {
       const level = { intermediate: {} };
       const status = { inProgress: {} };
       const roleRequirements = [
-        { role: { frontend: {} }, needed: 2, accepted: 0 },
-        { role: { backend: {} }, needed: 1, accepted: 0 },
-        { role: { fullstack: {} }, needed: 1, accepted: 0 },
+        { role: { frontend: {} }, needed: 2, accepted: 0, label: null },
+        { role: { backend: {} }, needed: 1, accepted: 0, label: null },
+        { role: { fullstack: {} }, needed: 1, accepted: 0, label: null },
       ];
 
       // Derive PDA
@@ -86,10 +86,13 @@ export default function ProjectsPage() {
       const { SystemProgram } = await import('@solana/web3.js');
       const [projectPDA] = await getProjectPDA(publicKey as any, name);
 
-      await (program as any).methods
-        .createProject(name, description, github, logoHash, techStack, needs, intent, level, status, roleRequirements)
-        .accounts({ project: projectPDA, user: userPda, creator: publicKey, systemProgram: SystemProgram.programId })
-        .rpc();
+      const { rpcWithRetry } = await import('../utils/rpcRetry');
+      await rpcWithRetry(() =>
+        (program as any).methods
+          .createProject(name, description, github, logoHash, techStack, needs, intent, level, status, roleRequirements)
+          .accounts({ project: projectPDA, user: userPda, creator: publicKey, systemProgram: SystemProgram.programId })
+          .rpc()
+      );
 
       await fetchProjects();
       alert('✅ Seed project created');
