@@ -4,6 +4,8 @@ import "./globals.css";
 import { WalletContextProvider } from "./providers/WalletProvider";
 import Navbar from "./components/Navbar";
 import Sidebar from './components/Sidebar';
+import RequestStatusMonitor from './components/RequestStatusMonitor';
+import ReceiverNotificationMonitor from './components/ReceiverNotificationMonitor';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,6 +33,9 @@ export default function RootLayout({
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
         <WalletContextProvider>
+          {/* Temporarily disabled to avoid rate limiting */}
+          {/* <RequestStatusMonitor /> */}
+          {/* <ReceiverNotificationMonitor /> */}
           <Sidebar />
           <div className="ml-64">
             <Navbar />

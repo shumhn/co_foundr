@@ -9,16 +9,18 @@ export interface Toast {
   type: ToastType;
   message: string;
   duration?: number;
+  onClick?: () => void;
 }
 
 let toastListeners: ((toast: Toast) => void)[] = [];
 
-export function showToast(type: ToastType, message: string, duration = 5000) {
+export function showToast(type: ToastType, message: string, duration = 5000, onClick?: () => void) {
   const toast: Toast = {
     id: Math.random().toString(36).substring(7),
     type,
     message,
     duration,
+    onClick,
   };
   toastListeners.forEach(listener => listener(toast));
 }
@@ -50,7 +52,15 @@ export function ToastContainer() {
       {toasts.map(toast => (
         <div
           key={toast.id}
+          onClick={() => {
+            if (toast.onClick) {
+              toast.onClick();
+              removeToast(toast.id);
+            }
+          }}
           className={`p-4 rounded-lg shadow-lg border animate-slide-in-right ${
+            toast.onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''
+          } ${
             toast.type === 'success'
               ? 'bg-green-900 border-green-600 text-green-100'
               : toast.type === 'error'

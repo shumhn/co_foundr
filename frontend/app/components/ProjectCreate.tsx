@@ -77,6 +77,9 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
 
   const [loading, setLoading] = useState(false);
 
+  // Roles: simple static list
+  const [roleRequirements, setRoleRequirements] = useState<Array<{role: string; needed: number; label?: string}>>([]);
+
   // Logo upload
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string>('');
@@ -94,7 +97,6 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
   const [needs, setNeeds] = useState<string[]>([]);
   const [customTech, setCustomTech] = useState('');
   const [customNeed, setCustomNeed] = useState('');
-  const [roleRequirements, setRoleRequirements] = useState<Array<{role: keyof typeof Role, needed: number, label?: string}>>([]);
   const [othersLabel, setOthersLabel] = useState('');
 
   // Validation errors
@@ -102,7 +104,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
 
   // Pre-fill form when in edit mode
   useEffect(() => {
-    if (editMode && existingProject?.account) {
+    if (editMode && existingProject) {
       const acc = existingProject.account;
       setName(acc.name || '');
       setDescription(acc.description || '');
@@ -140,22 +142,19 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
       }
       
       // Role requirements
-      if (acc.roleRequirements && Array.isArray(acc.roleRequirements)) {
-        const roles = acc.roleRequirements.map((r: any) => {
+      const rawRoles: any[] = (acc.requiredRoles || acc.roleRequirements || acc.roles || []) as any[];
+      if (Array.isArray(rawRoles) && rawRoles.length > 0) {
+        const roles = rawRoles.map((r: any) => {
           const roleKey = Object.keys(r.role || {})[0] || 'others';
-          const mapped = roleKey === 'frontend' ? 'Frontend' :
-                        roleKey === 'backend' ? 'Backend' :
-                        roleKey === 'smartContract' ? 'SmartContract' :
-                        roleKey === 'design' ? 'Design' :
-                        roleKey === 'marketing' ? 'Marketing' :
-                        'Others';
           return {
-            role: mapped as keyof typeof Role,
-            needed: r.slots || r.needed || 1,
-            label: r.label || undefined,
+            role: roleKey,
+            needed: Number(r.needed ?? r.slots ?? 0),
+            label: r.label ?? undefined,
           };
         });
         setRoleRequirements(roles);
+        const othersRole = roles.find((r: any) => r.role === 'others');
+        if (othersRole?.label) setOthersLabel(othersRole.label);
       }
       
       // Logo preview
@@ -178,7 +177,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
     // RoleRequirement: role enum (u8), needed (u8), accepted (u8), label Option<String>
     const roleReq = (label?: string) => 1 + 1 + 1 + optS(label);
     // Vec<RoleRequirement>
-    const vRoles = (roles: Array<{role: keyof typeof Role, needed: number, label?: string}>) => 4 + roles.reduce((acc, r) => acc + roleReq(r.role === 'Others' ? r.label : undefined), 0);
+    const vRoles = (roles: Array<{roleKey: string; label?: string; needed: number; accepted: number}>) => 4 + roles.reduce((acc, r) => acc + roleReq(r.label), 0);
     // Fixed fields: 8 discriminator + 32 creator pubkey + 8 timestamp + struct padding
     let base = 8 + 32 + 8 + 64; // add padding for alignment and hidden fields
     // dynamic fields
@@ -192,7 +191,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
     base += s(collabIntent);
     // enums for collab level and status (u8 each)
     base += 1 + 1;
-    base += vRoles(roleRequirements);
+    base += vRoles(roleRequirements.map((r) => ({ roleKey: r.role, needed: r.needed, accepted: 0, label: r.label })));
     // Add 50% safety margin due to serialization overhead/padding
     return Math.round(base * 1.5);
   }, [name, description, githubUrl, logoPreview, techStack, needs, collabIntent, roleRequirements]);
@@ -207,13 +206,13 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
 
     // More aggressive, but safe, limits for one-click compaction
     setDescription((d) => capLen(trimStr(d), 700));
-    setCollabIntent((v) => capLen(trimStr(v), 200));
-    setTechStack((ts) => dedupe(ts.map(t => capLen(trimStr(t), 16))).slice(0, 8));
-    setNeeds((ns) => dedupe(ns.map(t => capLen(trimStr(t), 16))).slice(0, 6));
-    setRoleRequirements((rs) => rs.slice(0, 6).map(r => ({
+    setCollabIntent((v) => capLen(trimStr(v), 300));
+    setTechStack((ts) => dedupe(ts.map(t => capLen(trimStr(t), 24))).slice(0, 12));
+    setNeeds((ns) => dedupe(ns.map(t => capLen(trimStr(t), 24))).slice(0, 10));
+    setRoleRequirements((rs) => rs.slice(0, 8).map(r => ({
       ...r,
-      needed: Math.max(0, Math.min(5, r.needed || 0)),
-      ...(r.role === 'Others' ? { label: r.label ? capLen(trimStr(r.label), 16) : undefined } : {})
+      needed: Math.max(0, Math.min(10, r.needed || 0)),
+      ...(r.role === 'others' ? { label: r.label ? capLen(trimStr(r.label), 24) : undefined } : {})
     })));
     alert('Content compacted. Review the fields and try submitting again.');
   };
@@ -292,16 +291,22 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
     const dedupe = (arr: string[]) => Array.from(new Set(arr));
 
     const safeName = capLen(trimStr(name), 50);
-    const safeDesc = capLen(trimStr(description), 500); // reduced
+    const safeDesc = capLen(trimStr(description), 1000);
     const safeGithub = capLen(trimStr(githubUrl), 100);
-    const safeIntent = capLen(trimStr(collabIntent), 150); // reduced
-    const safeTech = dedupe(techStack.map(t => capLen(trimStr(t), 16))).slice(0, 6); // reduced
-    const safeNeeds = dedupe(needs.map(t => capLen(trimStr(t), 16))).slice(0, 5); // reduced
-    const safeRoles = roleRequirements.slice(0, 4).map(r => ({ // reduced to 4
+    const safeIntent = capLen(trimStr(collabIntent), 300);
+    const safeTech = dedupe(techStack.map(t => capLen(trimStr(t), 24))).slice(0, 12);
+    const safeNeeds = dedupe(needs.map(t => capLen(trimStr(t), 24))).slice(0, 10);
+    const safeRoles = roleRequirements.slice(0, 8).map((r) => ({
       role: r.role,
-      needed: Math.max(0, Math.min(5, r.needed || 0)),
-      label: r.role === 'Others' && r.label ? capLen(trimStr(r.label), 16) : undefined,
+      needed: Math.max(0, Math.min(10, r.needed || 0)),
+      label: r.role === 'others' && r.label ? capLen(trimStr(r.label), 24) : undefined,
     }));
+
+    // Validate at least one role
+    if (safeRoles.filter(r => r.needed > 0).length === 0) {
+      alert('Select at least one contributor role.');
+      return;
+    }
 
     if (safeGithub.length === 0 || safeGithub.length > 100) {
       alert('GitHub URL must be 1–100 characters.');
@@ -368,7 +373,30 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             creator: publicKey,
           })
           .rpc();
-        
+        // Update roles if changed
+        if (roleRequirements.length > 0) {
+          try {
+            const roleReqs = roleRequirements.filter(r => r.needed > 0).map(r => {
+              // Map lowercase role to camelCase enum variant
+              const roleVariant = r.role === 'frontend' ? 'frontend' :
+                                  r.role === 'backend' ? 'backend' :
+                                  r.role === 'fullstack' ? 'fullstack' :
+                                  r.role === 'devops' ? 'devOps' :
+                                  r.role === 'qa' ? 'qa' :
+                                  r.role === 'designer' ? 'designer' :
+                                  'others';
+              return {
+                role: { [roleVariant]: {} },
+                needed: r.needed,
+                accepted: 0,
+                label: r.role === 'others' ? (r.label ?? null) : null,
+              };
+            });
+            await (program as any).methods.updateProjectRoles(roleReqs).accounts({ project: projectPDA, creator: publicKey }).rpc();
+          } catch (err) {
+            console.error('Update roles error:', err);
+          }
+        }
         alert('✅ Project updated successfully!');
         router.push(`/projects/${projectPDA.toBase58()}`);
       } else {
@@ -387,7 +415,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             safeIntent,
             CollaborationLevel[collabLevel],
             ProjectStatus[status],
-            safeRoles.map(r => ({ role: { [r.role.toLowerCase()]: {} }, needed: r.needed, accepted: 0, label: r.role === 'Others' && r.label ? r.label : null }))
+            safeRoles.filter(r => r.needed > 0).map(r => ({ role: { [r.role]: {} }, needed: r.needed, accepted: 0, label: r.role === 'others' && r.label ? r.label : null }))
           )
           .accounts({
             project: projectPDA,
@@ -482,24 +510,24 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
       </div>
 
       {/* Role Requirements */}
-      <div className="mb-4">
-        <label className="block text-gray-700 mb-2 font-semibold">Contributor Roles Needed (optional)</label>
+      <div className="mb-6">
+        <label className="block text-gray-700 mb-2 font-semibold">Contributor Roles Needed *</label>
         <div className="space-y-2">
-          {Object.keys(Role).map((roleKey) => {
-            const existing = roleRequirements.find(r => r.role === roleKey);
+          {['Frontend', 'Backend', 'Fullstack', 'DevOps', 'QA', 'Designer', 'Others'].map((roleKey) => {
+            const existing = roleRequirements.find(r => r.role === roleKey.toLowerCase());
             return (
               <div key={roleKey} className="flex items-center space-x-2">
                 <input
                   type="number"
                   min="0"
-                  max="5"
+                  max="10"
                   value={existing?.needed || 0}
                   onChange={(e) => {
                     const needed = parseInt(e.target.value) || 0;
                     setRoleRequirements(prev => {
-                      const filtered = prev.filter(r => r.role !== roleKey);
+                      const filtered = prev.filter(r => r.role !== roleKey.toLowerCase());
                       if (needed > 0) {
-                        const base = { role: roleKey as keyof typeof Role, needed } as any;
+                        const base: any = { role: roleKey.toLowerCase(), needed };
                         if (roleKey === 'Others') base.label = othersLabel.trim() || undefined;
                         return [...filtered, base];
                       }
@@ -518,7 +546,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
                     onChange={(e) => {
                       const v = e.target.value;
                       setOthersLabel(v);
-                      setRoleRequirements(prev => prev.map(r => r.role === 'Others' ? { ...r, label: v.trim() || undefined } : r));
+                      setRoleRequirements(prev => prev.map(r => r.role === 'others' ? { ...r, label: v.trim() || undefined } : r));
                     }}
                     placeholder="Label (e.g., Solidity, DevRel)"
                     className="flex-1 bg-white border border-gray-300 text-gray-900 rounded px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
@@ -528,7 +556,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             );
           })}
         </div>
-        <p className="text-xs text-gray-500 mt-1">Specify how many contributors you need for each role (max 5 per role)</p>
+        <p className="text-xs text-gray-500 mt-2">Specify how many contributors you need for each role (max 10 per role). At least one role is required.</p>
       </div>
 
       {/* Project Description */}
@@ -705,16 +733,16 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
 
       {/* Collaboration Intent */}
       <div className="mb-6">
-        <label className="block text-gray-700 mb-2 font-semibold">What do you want from collaboration? * (max 150 chars)</label>
+        <label className="block text-gray-700 mb-2 font-semibold">What do you want from collaboration? * (max 300 chars)</label>
         <textarea
           value={collabIntent}
           onChange={(e) => setCollabIntent(e.target.value)}
           rows={4}
-          maxLength={150}
+          maxLength={300}
           className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
           placeholder="E.g., Long-term co-founders for smart contract work"
         />
-        <div className="text-xs text-gray-500 mt-1">{collabIntent.length}/150</div>
+        <div className="text-xs text-gray-500 mt-1">{collabIntent.length}/300</div>
         {errors.collabIntent && <p className="text-red-600 text-sm mt-1">{errors.collabIntent}</p>}
       </div>
 

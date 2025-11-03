@@ -53,12 +53,17 @@ pub mod devcol_solana {
     }
 
 #[derive(Accounts)]
+pub struct UpdateProjectRoles<'info> {
+    #[account(mut, has_one = creator)]
+    pub project: Account<'info, Project>,
+    pub creator: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct DeleteProject<'info> {
     #[account(
         mut,
         close = creator,
-        seeds = [b"project", creator.key().as_ref(), project.name.as_bytes()],
-        bump = project.bump,
         has_one = creator
     )]
     pub project: Account<'info, Project>,
@@ -128,6 +133,28 @@ pub struct DeleteCollabRequest<'info> {
 
     /// CHECK: Must match the 'to' address on the request
     pub to: AccountInfo<'info>,
+}
+
+#[derive(Accounts)]
+pub struct DeleteSenderRejectedRequest<'info> {
+    #[account(
+        mut,
+        close = sender,
+        seeds = [
+            b"collab_request",
+            sender.key().as_ref(),
+            collab_request.project.as_ref()
+        ],
+        bump = collab_request.bump,
+        constraint = collab_request.from == sender.key()
+    )]
+    pub collab_request: Account<'info, CollaborationRequest>,
+
+    #[account(mut)]
+    pub sender: Signer<'info>,
+
+    /// The project (no need to be signer, just reference)
+    pub project: Account<'info, Project>,
 }
 
     /// Update user profile with enhanced fields
@@ -231,7 +258,9 @@ pub struct DeleteCollabRequest<'info> {
         for t in tech_stack.iter() { require!(t.len() <= 24, ErrorCode::TechTagTooLong); }
         for n in contribution_needs.iter() { require!(n.len() <= 24, ErrorCode::NeedTagTooLong); }
         for r in required_roles.iter() {
-            require!(r.needed > 0 && r.needed <= 10, ErrorCode::InvalidRoleCount);
+            // Validate needed range
+            require!(r.needed > 0, ErrorCode::InvalidRoleCounts);
+            require!(r.needed <= 10, ErrorCode::RoleNeededTooLarge);
             // If role is Others then a label is encouraged (optionally enforce non-empty)
             if let Role::Others = r.role {
                 if let Some(lbl) = &r.label {
@@ -467,11 +496,42 @@ pub struct DeleteCollabRequest<'info> {
         Ok(())
     }
 
+    /// Delete sender's own rejected collaboration request (allows reapplying)
+    pub fn delete_sender_rejected_request(ctx: Context<DeleteSenderRejectedRequest>) -> Result<()> {
+        let request = &ctx.accounts.collab_request;
+        require!(request.status == RequestStatus::Rejected, ErrorCode::InvalidRequestStatus);
+        // Account will be closed to sender via context 'close'
+        msg!("Sender deleted their rejected request: {:?}", request.key());
+        Ok(())
+    }
+
     /// Permanently delete a project and refund lamports to the creator
     pub fn delete_project(ctx: Context<DeleteProject>) -> Result<()> {
         // The account is closed to the creator by the context attribute
         let pk = ctx.accounts.project.key();
         msg!("Project deleted: {:?}", pk);
+        Ok(())
+    }
+
+    /// Update project's role requirements (creator only)
+    pub fn update_project_roles(
+        ctx: Context<UpdateProjectRoles>,
+        role_requirements: Vec<RoleRequirement>,
+    ) -> Result<()> {
+        let project = &mut ctx.accounts.project;
+        // Memory guard: limit number of roles to keep account size safe
+        require!(role_requirements.len() <= 12, ErrorCode::TooManyRoles);
+
+        // Validate each role requirement
+        for r in role_requirements.iter() {
+            // Cap needed to a sane upper bound (e.g., 10)
+            require!(r.needed <= 10, ErrorCode::RoleNeededTooLarge);
+            // accepted must be <= needed
+            require!(r.accepted <= r.needed, ErrorCode::InvalidRoleCounts);
+        }
+
+        // Apply update
+        project.required_roles = role_requirements;
         Ok(())
     }
 }
@@ -820,13 +880,12 @@ pub enum ErrorCode {
     #[msg("Invalid request status for this operation")]
     InvalidRequestStatus,
     
-    #[msg("Too many roles (max 8)")]
+    #[msg("Too many roles; maximum is 12")] 
     TooManyRoles,
-    
-    #[msg("Role count must be between 1 and 10")]
-    InvalidRoleCount,
-    
-    #[msg("Role not found in project requirements")]
+    #[msg("Invalid role counts: accepted cannot exceed needed")] 
+    InvalidRoleCounts,
+    #[msg("Needed count too large; maximum is 10")] 
+    RoleNeededTooLarge,
     RoleNotFound,
     
     #[msg("Role slot is full (all positions filled)")]

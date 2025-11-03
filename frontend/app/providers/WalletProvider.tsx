@@ -3,7 +3,6 @@
 import { FC, ReactNode, useMemo, useCallback } from 'react';
 import { ConnectionProvider, WalletProvider } from '@solana/wallet-adapter-react';
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
-import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { clusterApiUrl, Commitment } from '@solana/web3.js';
 
@@ -28,12 +27,10 @@ export const WalletContextProvider: FC<WalletContextProviderProps> = ({ children
   }, [network]);
   const commitment: Commitment = 'confirmed';
 
-  // Initialize wallets
+  // Wallets are auto-detected via Wallet Standard (no explicit adapters needed)
+  // Phantom, Solflare, and other Standard Wallets will be automatically available
   const wallets = useMemo(
-    () => [
-      new PhantomWalletAdapter(),
-      new SolflareWalletAdapter(),
-    ],
+    () => [],
     []
   );
 

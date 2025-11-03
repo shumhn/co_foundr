@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useRef } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
 import { PublicKey } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useAnchorProgram } from '../hooks/useAnchorProgram';
@@ -23,6 +24,8 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default function RequestsPage() {
+  const searchParams = useSearchParams();
+  const highlightId = searchParams?.get('highlight');
   const { program } = useAnchorProgram();
   const { publicKey } = useWallet();
 
@@ -32,6 +35,8 @@ export default function RequestsPage() {
   const [activeTab, setActiveTab] = useState<'open' | 'received' | 'sent'>('open');
   const [actingId, setActingId] = useState<string | null>(null);
   const [usernames, setUsernames] = useState<Record<string, string>>({});
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const requestRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   const shorten = (s: string) => `${s.slice(0, 4)}…${s.slice(-4)}`;
 
@@ -125,11 +130,27 @@ export default function RequestsPage() {
     if (!program || !publicKey) return;
     setLoading(true);
     try {
-      const all = await (program as any).account.collaborationRequest.all();
+      // Some legacy or corrupted accounts on devnet can break decode with RangeError.
+      // Walk program accounts and decode each safely, skipping failures.
+      const conn = (program as any).provider.connection;
+      const programId = (program as any).programId;
+      const accs = await conn.getProgramAccounts(programId, { commitment: 'processed' });
+      const decoded: any[] = [];
+      for (const a of accs) {
+        try {
+          const acct = await (program as any).account.collaborationRequest.fetchNullable(a.pubkey, 'processed');
+          if (acct) {
+            decoded.push({ publicKey: a.pubkey, account: acct });
+          }
+        } catch (e) {
+          // Skip accounts that are not CollaborationRequest or fail to decode
+          continue;
+        }
+      }
       // Sort newest first
-      all.sort((a: any, b: any) => (b.account.timestamp || 0) - (a.account.timestamp || 0));
-      const rec = all.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());
-      const snt = all.filter((a: any) => a.account.from?.toString?.() === publicKey.toString());
+      decoded.sort((x: any, y: any) => (y.account.timestamp || 0) - (x.account.timestamp || 0));
+      const rec = decoded.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());
+      const snt = decoded.filter((a: any) => a.account.from?.toString?.() === publicKey.toString());
       setReceived(rec);
       setSent(snt);
     } catch (e) {
@@ -143,6 +164,34 @@ export default function RequestsPage() {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, publicKey]);
+
+  // Handle highlight from URL query parameter
+  useEffect(() => {
+    if (highlightId && !loading) {
+      // Find which tab the request is in
+      const inReceived = received.find(r => r.publicKey.toString() === highlightId);
+      const inSent = sent.find(r => r.publicKey.toString() === highlightId);
+      
+      if (inReceived) {
+        setActiveTab('received');
+      } else if (inSent) {
+        setActiveTab('sent');
+      }
+      
+      // Highlight the request
+      setHighlightedId(highlightId);
+      
+      // Scroll to the request after a short delay to ensure rendering
+      setTimeout(() => {
+        const element = requestRefs.current[highlightId];
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+        // Clear highlight after 3 seconds
+        setTimeout(() => setHighlightedId(null), 3000);
+      }, 300);
+    }
+  }, [highlightId, loading, received, sent]);
 
   const accept = async (req: any) => {
     if (!program || !publicKey) return;
@@ -209,10 +258,15 @@ export default function RequestsPage() {
             const { gh, tw, body } = parseProofs(req.account.message || '');
             const youAreSender = publicKey?.toString() === req.account.from.toString();
             const youAreRecipient = publicKey?.toString() === req.account.to.toString();
+            const reqId = req.publicKey.toString();
+            const isHighlighted = reqId === highlightedId;
             return (
               <div
-                key={req.publicKey.toString()}
-                className="bg-white border border-gray-200 rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm"
+                key={reqId}
+                ref={el => { requestRefs.current[reqId] = el; }}
+                className={`bg-white border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3 shadow-sm transition-all duration-500 ${
+                  isHighlighted ? 'border-[#00D4AA] border-2 bg-[#00D4AA]/5' : 'border-gray-200'
+                }`}
               >
                 <div>
                   <div className="flex items-center gap-2">

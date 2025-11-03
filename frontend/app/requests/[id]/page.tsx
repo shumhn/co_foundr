@@ -119,8 +119,9 @@ export default function RequestDetailPage() {
     run();
   }, [program, params.id]);
 
-  const accept = async () => {
+  const accept = async (message?: string) => {
     if (!canUse || !req) return;
+    const finalMessage = message || ownerMessage.trim() || 'Request accepted';
     // Hard preflight: block legacy requests owned by old program
     try {
       const info = await (program as any).provider.connection.getAccountInfo(req.publicKey, 'processed');
@@ -138,15 +139,17 @@ export default function RequestDetailPage() {
     try {
       await rpcWithRetry(() =>
         (program as any).methods
-          .acceptCollabRequest(ownerMessage.trim() || 'Request accepted')
+          .acceptCollabRequest(finalMessage)
           .accounts({ collabRequest: req.publicKey, to: publicKey, project: req.account.project })
           .rpc()
       );
       // Confirmed: refetch to reconcile
       const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'confirmed');
+      console.log('Refetched after accept. Owner message:', account.ownerMessage);
       setReq({ publicKey: req.publicKey, account });
       showToast('success', '✅ Request accepted');
       setOwnerMessage('');
+      setShowMessageModal(null);
     } catch (e) {
       console.error('Accept collab error:', e);
       alert('❌ Failed to accept: ' + (e as any)?.message || 'Unknown error');
@@ -158,8 +161,9 @@ export default function RequestDetailPage() {
     }
   };
 
-  const reject = async () => {
+  const reject = async (message?: string) => {
     if (!canUse || !req) return;
+    const finalMessage = message || ownerMessage.trim() || 'Request rejected';
     // Hard preflight: block legacy requests owned by old program
     try {
       const info = await (program as any).provider.connection.getAccountInfo(req.publicKey, 'processed');
@@ -177,13 +181,15 @@ export default function RequestDetailPage() {
     try {
       await rpcWithRetry(() =>
         (program as any).methods
-          .rejectCollabRequest(ownerMessage.trim() || 'Request rejected')
+          .rejectCollabRequest(finalMessage)
           .accounts({ collabRequest: req.publicKey, to: publicKey, project: req.account.project })
           .rpc()
       );
       const account = await (program as any).account.collaborationRequest.fetch(req.publicKey, 'confirmed');
+      console.log('Refetched after reject. Owner message:', account.ownerMessage);
       setReq({ publicKey: req.publicKey, account });
       setOwnerMessage('');
+      setShowMessageModal(null);
     } catch (e) {
       console.error('Reject collab error:', e);
       alert('❌ Failed to reject: ' + (e as any)?.message || 'Unknown error');
@@ -345,8 +351,10 @@ export default function RequestDetailPage() {
             </div>
           )}
 
-          {/* Owner's reply message */}
-          {req.account.ownerMessage && req.account.ownerMessage.trim() && (
+          {/* Owner's reply message - Debug */}
+          {(() => {
+            console.log('Rendering owner message section. ownerMessage:', req.account.ownerMessage);
+            return req.account.ownerMessage && req.account.ownerMessage.trim() ? (
             <div className={`mt-6 p-4 rounded-lg border ${
               status === 'accepted' ? 'bg-green-50 border-green-200' : 
               status === 'rejected' ? 'bg-red-50 border-red-200' : 
@@ -374,7 +382,8 @@ export default function RequestDetailPage() {
                 'text-gray-700'
               }`}>{req.account.ownerMessage}</p>
             </div>
-          )}
+            ) : null;
+          })()}
 
           <div className="mt-8 flex flex-col sm:flex-row gap-3">
             {youAreRecipient && isPending && (
@@ -421,8 +430,9 @@ export default function RequestDetailPage() {
           onClose={() => setShowMessageModal(null)}
           onSubmit={(msg) => {
             setOwnerMessage(msg);
-            if (showMessageModal === 'accept') accept();
-            else if (showMessageModal === 'reject') reject();
+            if (showMessageModal === 'accept') accept(msg);
+            else if (showMessageModal === 'reject') reject(msg);
+            setShowMessageModal(null);
           }}
         />
       </div>

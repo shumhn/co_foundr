@@ -35,6 +35,7 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isLegacy, setIsLegacy] = useState(false);
   
   // Collaboration request modal state
   const [showCollabModal, setShowCollabModal] = useState(false);
@@ -133,6 +134,16 @@ export default function ProjectDetailPage() {
     setLoading(true);
     try {
       const projectPubkey = new PublicKey(params.id as string);
+      // Owner check: ensure this account belongs to current program
+      const info = await (program as any).provider.connection.getAccountInfo(projectPubkey, 'processed');
+      const owner = info?.owner?.toBase58?.();
+      const current = (program as any).programId?.toBase58?.();
+      if (owner && current && owner !== current) {
+        // Legacy project from old program: hide from UI
+        setIsLegacy(true);
+        setProject(null);
+        return;
+      }
       // Use confirmed commitment to reduce stale reads after updates
       const projectAccount = await (program as any).account.project.fetch(projectPubkey, 'confirmed');
       setProject({ publicKey: projectPubkey, account: projectAccount });
@@ -140,6 +151,29 @@ export default function ProjectDetailPage() {
       console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const deleteProject = async () => {
+    if (!publicKey || !program || !project) return;
+    
+    const confirmed = confirm('Are you sure you want to delete this project? This will refund your SOL but cannot be undone.');
+    if (!confirmed) return;
+
+    try {
+      await (program as any).methods
+        .deleteProject()
+        .accounts({
+          project: project.publicKey,
+          creator: publicKey,
+        })
+        .rpc();
+
+      alert('✅ Project deleted successfully! Your SOL has been refunded.');
+      router.push('/projects');
+    } catch (error: any) {
+      console.error('Delete project error:', error);
+      alert('❌ Failed to delete project: ' + (error.message || 'Unknown error'));
     }
   };
 
@@ -152,6 +186,7 @@ export default function ProjectDetailPage() {
     }
 
     // Preflight: Block if an existing non-rejected request already exists
+    // If rejected, delete it first to free the PDA for a new request
     try {
       const [prePda] = await PublicKey.findProgramAddress(
         [Buffer.from('collab_request'), publicKey.toBuffer(), project.publicKey.toBuffer()],
@@ -161,15 +196,65 @@ export default function ProjectDetailPage() {
       if (info && info.data && info.data.length >= 1000 && info.owner?.toBase58?.() === (program as any).programId.toBase58?.()) {
         const existing = await (program as any).account.collaborationRequest.fetch(prePda, 'processed');
         const st = Object.keys(existing.status || {})[0];
-        if (st && st !== 'rejected') {
-          alert('You already have a request for this project. Please check your Requests page.');
+        
+        // Block if pending/underReview/accepted
+        if (st === 'pending') {
+          alert('⏳ You already have a pending request for this project. Check your Requests page.');
           return;
+        }
+        if (st === 'underReview') {
+          alert('👀 Your request is under review. Check your Requests page for updates.');
+          return;
+        }
+        if (st === 'accepted') {
+          alert('✅ You are already collaborating on this project!');
+          return;
+        }
+        
+        // If rejected, close the old request account first to free the PDA
+        if (st === 'rejected') {
+          try {
+            console.log('Deleting rejected request...');
+            console.log('PDA:', prePda.toBase58());
+            console.log('Sender:', publicKey.toBase58());
+            console.log('Project:', project.publicKey.toBase58());
+            
+            const tx = await (program as any).methods
+              .deleteSenderRejectedRequest()
+              .accounts({
+                collabRequest: prePda,
+                sender: publicKey,
+                project: project.publicKey,
+              })
+              .rpc();
+            console.log('Delete tx signature:', tx);
+            // Wait for confirmation
+            await (program as any).provider.connection.confirmTransaction(tx, 'confirmed');
+            // Wait a moment for the account to close
+            await new Promise(resolve => setTimeout(resolve, 500));
+            console.log('Rejected request deleted successfully');
+          } catch (deleteErr: any) {
+            console.error('Failed to delete rejected request:', deleteErr);
+            console.error('Error name:', deleteErr.name);
+            console.error('Error message:', deleteErr.message);
+            // Log detailed error
+            if (deleteErr.logs) {
+              console.error('Transaction logs:', deleteErr.logs);
+            }
+            // Check if user rejected
+            if (deleteErr.message?.includes('User rejected') || deleteErr.name === 'WalletSignTransactionError') {
+              alert('❌ Transaction canceled. Please approve the transaction to delete your previous rejected request.');
+              return;
+            }
+            alert('❌ Failed to clear previous rejected request: ' + (deleteErr.message || 'Unknown error'));
+            return;
+          }
         }
       }
     } catch {}
 
-    // Validate GitHub URL
-    const ghOk = /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+(\/(A-Za-z0-9_.-]+))?\/?$/.test(proofGithub.trim());
+    // Validate GitHub URL (allow profile or repo)
+    const ghOk = /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+(\/[A-Za-z0-9_.-]+)?\/?$/.test(proofGithub.trim());
     if (!ghOk) {
       alert('Please provide a valid GitHub repo or profile URL');
       return;
@@ -255,6 +340,27 @@ export default function ProjectDetailPage() {
       <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
         <div className="max-w-6xl mx-auto px-6 py-10">
           <div className="text-center text-gray-600">Loading project...</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isLegacy) {
+    // Legacy projects are hidden from UI
+    if (typeof window !== 'undefined') {
+      // Soft redirect back to projects
+      setTimeout(() => {
+        try { router.push('/projects'); } catch {}
+      }, 0);
+    }
+    return (
+      <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+        <div className="max-w-6xl mx-auto px-6 py-10">
+          <div className="text-center">
+            <h2 className="text-base font-semibold text-gray-900 mb-2">Legacy Project</h2>
+            <p className="text-sm text-gray-600">This project belongs to an older program version and is hidden from the UI.</p>
+            <Link href="/projects" className="inline-block mt-4 text-[#00D4AA] hover:underline text-sm font-medium">← Back to Projects</Link>
+          </div>
         </div>
       </div>
     );
@@ -487,39 +593,39 @@ export default function ProjectDetailPage() {
                   Edit Project
                 </button>
                 <button
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete this project?')) {
-                      // deleteProject logic here
-                    }
-                  }}
+                  onClick={deleteProject}
                   className="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg text-sm"
                 >
                   Delete Project
                 </button>
               </div>
             ) : publicKey ? (
-              existingRequest && Object.keys(existingRequest.status || {})[0] !== 'rejected' ? (
-                <div className="w-full px-4 py-2.5 bg-gray-100 text-gray-600 font-medium rounded-lg text-center text-sm">
-                  {Object.keys(existingRequest.status)[0] === 'pending' && 'Request pending'}
-                  {Object.keys(existingRequest.status)[0] === 'underReview' && 'Request under review'}
-                  {Object.keys(existingRequest.status)[0] === 'accepted' && 'Collaboration in progress'}
-                  <a href="/requests" className="block mt-2 text-xs text-[#00D4AA] hover:underline">View request</a>
-                </div>
-              ) : (
-                <button
-                  onClick={() => {
-                    if (existingRequest && Object.keys(existingRequest.status || {})[0] !== 'rejected') {
-                      alert('You already have a request for this project. Please check your Requests page.');
-                      return;
-                    }
-                    setShowCollabModal(true);
-                  }}
-                  className="w-full px-4 py-2.5 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-medium rounded-lg text-sm"
-                  disabled={checkingRequest}
-                >
-                  {checkingRequest ? 'Loading...' : 'Request to Collaborate'}
-                </button>
-              )
+              (() => {
+                const status = existingRequest ? Object.keys(existingRequest.status || {})[0] : null;
+                
+                // Show status message if pending, under review, or accepted
+                if (status && status !== 'rejected') {
+                  return (
+                    <div className="w-full px-4 py-2.5 bg-gray-100 text-gray-600 font-medium rounded-lg text-center text-sm">
+                      {status === 'pending' && '⏳ Request pending'}
+                      {status === 'underReview' && '👀 Request under review'}
+                      {status === 'accepted' && '✅ Collaboration in progress'}
+                      <a href="/requests" className="block mt-2 text-xs text-[#00D4AA] hover:underline">View request</a>
+                    </div>
+                  );
+                }
+                
+                // Show button if no request exists or if rejected (allow re-send)
+                return (
+                  <button
+                    onClick={() => setShowCollabModal(true)}
+                    className="w-full px-4 py-2.5 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-medium rounded-lg text-sm"
+                    disabled={checkingRequest}
+                  >
+                    {checkingRequest ? 'Loading...' : status === 'rejected' ? 'Send New Request' : 'Request to Collaborate'}
+                  </button>
+                );
+              })()
             ) : (
               <button
                 disabled
@@ -575,7 +681,7 @@ export default function ProjectDetailPage() {
                   type="text"
                   value={proofTwitter}
                   onChange={(e) => setProofTwitter(e.target.value)}
-                  placeholder="https://twitter.com/yourhandle or @yourhandle"
+                  placeholder="https://x.com/devsh_"
                   className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]"
                 />
                 <p className="text-xs text-gray-500 mt-1">GitHub shows your work; Twitter/X is for contact.</p>

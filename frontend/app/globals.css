@@ -24,16 +24,46 @@ body {
   overflow-x: hidden;
 }
 
+html, body {
+  height: 100%;
+  background: #F8F9FA;
+  color: #111827;
+  overflow-x: hidden;
+}
+
+/* Ensure Solana Wallet Adapter modal is always on top and clickable */
+.wallet-adapter-modal *,
+.wallet-adapter-modal,
+.wallet-adapter-modal-container,
+.wallet-adapter-modal-wrapper,
+.wallet-adapter-modal-overlay,
+.wallet-adapter-modal button,
+.wallet-adapter-modal-button {
+  z-index: 10000 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+}
+
+.wallet-adapter-modal { position: fixed; }
+
+/* Modal content must be above overlay */
+.wallet-adapter-modal-container {
+  z-index: 10001 !important;
+}
+
+.wallet-adapter-modal-wrapper {
+  z-index: 10002 !important;
+}
+
 body::before {
   content: "";
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: radial-gradient(circle at 50% 0%, rgba(0, 212, 170, 0.03), transparent 50%);
-  pointer-events: none;
+  inset: 0;
+  background: radial-gradient(1200px circle at 0% 0%, rgba(0, 212, 170, 0.06), transparent 40%),
+              radial-gradient(900px circle at 100% 0%, rgba(99, 102, 241, 0.06), transparent 40%),
+              radial-gradient(900px circle at 0% 100%, rgba(236, 72, 153, 0.06), transparent 40%);
   z-index: 0;
+  pointer-events: none; /* Do not block clicks */
 }
 
 #__next, main, nav {

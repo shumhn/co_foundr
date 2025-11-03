@@ -407,32 +407,7 @@
       "accounts": [
         {
           "name": "project",
-          "writable": true,
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  112,
-                  114,
-                  111,
-                  106,
-                  101,
-                  99,
-                  116
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "creator"
-              },
-              {
-                "kind": "account",
-                "path": "project.name",
-                "account": "Project"
-              }
-            ]
-          }
+          "writable": true
         },
         {
           "name": "creator",
@@ -440,6 +415,72 @@
           "signer": true,
           "relations": [
             "project"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "delete_sender_rejected_request",
+      "docs": [
+        "Delete sender's own rejected collaboration request (allows reapplying)"
+      ],
+      "discriminator": [
+        29,
+        88,
+        231,
+        39,
+        190,
+        133,
+        61,
+        228
+      ],
+      "accounts": [
+        {
+          "name": "collab_request",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  111,
+                  108,
+                  108,
+                  97,
+                  98,
+                  95,
+                  114,
+                  101,
+                  113,
+                  117,
+                  101,
+                  115,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "sender"
+              },
+              {
+                "kind": "account",
+                "path": "collab_request.project",
+                "account": "CollaborationRequest"
+              }
+            ]
+          }
+        },
+        {
+          "name": "sender",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "project",
+          "docs": [
+            "The project (no need to be signer, just reference)"
           ]
         }
       ],
@@ -968,6 +1009,47 @@
       ]
     },
     {
+      "name": "update_project_roles",
+      "docs": [
+        "Update project's role requirements (creator only)"
+      ],
+      "discriminator": [
+        5,
+        116,
+        29,
+        94,
+        78,
+        22,
+        65,
+        213
+      ],
+      "accounts": [
+        {
+          "name": "project",
+          "writable": true
+        },
+        {
+          "name": "creator",
+          "signer": true,
+          "relations": [
+            "project"
+          ]
+        }
+      ],
+      "args": [
+        {
+          "name": "role_requirements",
+          "type": {
+            "vec": {
+              "defined": {
+                "name": "RoleRequirement"
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
       "name": "update_user",
       "docs": [
         "Update user profile with enhanced fields"
@@ -1267,25 +1349,29 @@
     {
       "code": 6017,
       "name": "TooManyRoles",
-      "msg": "Too many roles (max 8)"
+      "msg": "Too many roles; maximum is 12"
     },
     {
       "code": 6018,
-      "name": "InvalidRoleCount",
-      "msg": "Role count must be between 1 and 10"
+      "name": "InvalidRoleCounts",
+      "msg": "Invalid role counts: accepted cannot exceed needed"
     },
     {
       "code": 6019,
-      "name": "RoleNotFound",
-      "msg": "Role not found in project requirements"
+      "name": "RoleNeededTooLarge",
+      "msg": "Needed count too large; maximum is 10"
     },
     {
       "code": 6020,
+      "name": "RoleNotFound"
+    },
+    {
+      "code": 6021,
       "name": "RoleSlotFull",
       "msg": "Role slot is full (all positions filled)"
     },
     {
-      "code": 6021,
+      "code": 6022,
       "name": "RoleLabelTooLong",
       "msg": "Role label must be 24 characters or less"
     }

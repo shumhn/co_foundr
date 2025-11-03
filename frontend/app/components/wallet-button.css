@@ -1,0 +1,73 @@
+/* Force all wallet adapter elements to be clickable */
+.wallet-adapter-button,
+.wallet-adapter-button-trigger,
+button[class*="wallet-adapter"] {
+    z-index: 999999 !important;
+    position: relative !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
+/* Custom Wallet Button Styling */
+.wallet-adapter-button-trigger {
+    background-color: #7c3aed !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 8px !important;
+    font-weight: 600 !important;
+    padding: 10px 16px !important;
+    font-size: 14px !important;
+    transition: all 0.2s ease !important;
+}
+
+.wallet-adapter-button-trigger:hover:not([disabled]) {
+    background-color: #6d28d9 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(124, 58, 237, 0.3) !important;
+}
+
+/* Dropdown menu when connected (Copy Address, Change Wallet, Disconnect) */
+.wallet-adapter-dropdown {
+    position: absolute !important;
+    z-index: 999999 !important;
+    pointer-events: auto !important;
+}
+
+.wallet-adapter-dropdown-list {
+    background: white !important;
+    border: 1px solid #e5e7eb !important;
+    border-radius: 8px !important;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1) !important;
+    padding: 8px !important;
+    margin-top: 8px !important;
+    min-width: 200px !important;
+    z-index: 999999 !important;
+    pointer-events: auto !important;
+}
+
+.wallet-adapter-dropdown-list-item {
+    padding: 10px 12px !important;
+    border-radius: 6px !important;
+    cursor: pointer !important;
+    transition: background-color 0.2s ease !important;
+    font-size: 14px !important;
+    pointer-events: auto !important;
+    z-index: 999999 !important;
+}
+
+.wallet-adapter-dropdown-list-item:hover {
+    background-color: #f3f4f6 !important;
+}
+
+/* Ensure modal is visible and clickable */
+.wallet-adapter-modal-wrapper,
+.wallet-adapter-modal,
+.wallet-adapter-modal-container {
+    z-index: 999999 !important;
+    pointer-events: auto !important;
+}
+
+.wallet-adapter-modal-list .wallet-adapter-button {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
