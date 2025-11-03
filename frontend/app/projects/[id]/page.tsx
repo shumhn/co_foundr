@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useAnchorProgram } from '@/app/hooks/useAnchorProgram';
-import { PublicKey } from '@solana/web3.js';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
 import Link from 'next/link';
 import { Space_Grotesk, Sora } from 'next/font/google';
 
@@ -35,6 +35,17 @@ export default function ProjectDetailPage() {
 
   const [project, setProject] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  
+  // Collaboration request modal state
+  const [showCollabModal, setShowCollabModal] = useState(false);
+  const [collabMessage, setCollabMessage] = useState('');
+  const [proofGithub, setProofGithub] = useState('');
+  const [proofTwitter, setProofTwitter] = useState('');
+  const [desiredRole, setDesiredRole] = useState('');
+  const [sending, setSending] = useState(false);
+  const [hasProfile, setHasProfile] = useState(false);
+  const [existingRequest, setExistingRequest] = useState<any>(null);
+  const [checkingRequest, setCheckingRequest] = useState(false);
 
   useEffect(() => {
     if (params.id && program) {
@@ -42,17 +53,200 @@ export default function ProjectDetailPage() {
     }
   }, [params.id, program]);
 
+  // Refetch when window regains focus to avoid stale project data after updates
+  useEffect(() => {
+    const onFocus = () => {
+      if (program && params.id) fetchProject();
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('focus', onFocus);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('focus', onFocus);
+      }
+    };
+  }, [program, params.id]);
+
+  // Check if user has profile
+  useEffect(() => {
+    const checkProfile = async () => {
+      if (!program || !publicKey) {
+        setHasProfile(false);
+        return;
+      }
+      try {
+        const [userPda] = await PublicKey.findProgramAddress(
+          [Buffer.from('user'), publicKey.toBuffer()],
+          (program as any).programId
+        );
+        const acct = await (program as any).account.user.fetchNullable(userPda);
+        setHasProfile(!!acct);
+      } catch {
+        setHasProfile(false);
+      }
+    };
+    checkProfile();
+  }, [program, publicKey]);
+
+  // Check if user already sent a request for this project (ignore old schema accounts)
+  useEffect(() => {
+    const checkExistingRequest = async () => {
+      if (!program || !publicKey || !project) return;
+      setCheckingRequest(true);
+      try {
+        const [collabRequestPDA] = await PublicKey.findProgramAddress(
+          [
+            Buffer.from('collab_request'),
+            publicKey.toBuffer(),
+            project.publicKey.toBuffer(),
+          ],
+          (program as any).programId
+        );
+        const info = await (program as any).provider.connection.getAccountInfo(collabRequestPDA, 'processed');
+        if (!info || !info.data) {
+          setExistingRequest(null);
+        } else if (info.owner?.toBase58?.() !== (program as any).programId.toBase58?.()) {
+          setExistingRequest(null);
+        } else if (info.data.length < 1000) {
+          // Old schema without owner_message field - ignore
+          setExistingRequest(null);
+        } else {
+          try {
+            const existingReq = await (program as any).account.collaborationRequest.fetch(collabRequestPDA, 'processed');
+            setExistingRequest(existingReq);
+          } catch {
+            setExistingRequest(null);
+          }
+        }
+      } catch (e) {
+        setExistingRequest(null);
+      } finally {
+        setCheckingRequest(false);
+      }
+    };
+    checkExistingRequest();
+  }, [program, publicKey, project]);
+
   const fetchProject = async () => {
     if (!params.id || !program) return;
     setLoading(true);
     try {
       const projectPubkey = new PublicKey(params.id as string);
-      const projectAccount = await (program as any).account.project.fetch(projectPubkey);
+      // Use confirmed commitment to reduce stale reads after updates
+      const projectAccount = await (program as any).account.project.fetch(projectPubkey, 'confirmed');
       setProject({ publicKey: projectPubkey, account: projectAccount });
     } catch (error) {
       console.error('Error fetching project:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const sendCollabRequest = async () => {
+    if (!publicKey || !program || !project) return;
+    if (!hasProfile) {
+      alert('Please create your profile before sending collaboration requests.');
+      router.push('/profile');
+      return;
+    }
+
+    // Preflight: Block if an existing non-rejected request already exists
+    try {
+      const [prePda] = await PublicKey.findProgramAddress(
+        [Buffer.from('collab_request'), publicKey.toBuffer(), project.publicKey.toBuffer()],
+        (program as any).programId
+      );
+      const info = await (program as any).provider.connection.getAccountInfo(prePda, 'processed');
+      if (info && info.data && info.data.length >= 1000 && info.owner?.toBase58?.() === (program as any).programId.toBase58?.()) {
+        const existing = await (program as any).account.collaborationRequest.fetch(prePda, 'processed');
+        const st = Object.keys(existing.status || {})[0];
+        if (st && st !== 'rejected') {
+          alert('You already have a request for this project. Please check your Requests page.');
+          return;
+        }
+      }
+    } catch {}
+
+    // Validate GitHub URL
+    const ghOk = /^https?:\/\/(www\.)?github\.com\/[A-Za-z0-9_.-]+(\/(A-Za-z0-9_.-]+))?\/?$/.test(proofGithub.trim());
+    if (!ghOk) {
+      alert('Please provide a valid GitHub repo or profile URL');
+      return;
+    }
+
+    // Validate Twitter/X
+    const twOk = /^(https?:\/\/)?(www\.)?(twitter\.com|x\.com)\/[A-Za-z0-9_]{1,15}\/?$/.test(proofTwitter.trim()) || /^(@)?[A-Za-z0-9_]{1,15}$/.test(proofTwitter.trim());
+    if (!twOk) {
+      alert('Please provide a valid Twitter/X profile URL or handle (e.g. https://twitter.com/yourhandle or @yourhandle)');
+      return;
+    }
+
+    const body = collabMessage.trim();
+    if (!body) {
+      alert('Please add a short message');
+      return;
+    }
+
+    // Validate desired role if roles are defined
+    const account = project.account;
+    if (account.requiredRoles && account.requiredRoles.length > 0) {
+      if (!desiredRole) {
+        alert('Please select a desired role for this project.');
+        return;
+      }
+      const roleReq = account.requiredRoles.find((r: any) => Object.keys(r.role || {})[0] === desiredRole);
+      if (!roleReq || roleReq.accepted >= roleReq.needed) {
+        alert('Selected role is no longer available. Please choose another.');
+        return;
+      }
+    }
+
+    setSending(true);
+    try {
+      // Combine proofs + message within 500 chars budget
+      const header = `[GH] ${proofGithub.trim()}\n[TW] ${proofTwitter.replace(/^@/, '').trim()}\n`;
+      let combined = `${header}\n${body}`;
+      if (combined.length > 500) {
+        combined = combined.slice(0, 500);
+      }
+
+      // Derive PDA for collab request
+      const [collabRequestPDA] = await PublicKey.findProgramAddress(
+        [
+          Buffer.from('collab_request'),
+          publicKey.toBuffer(),
+          project.publicKey.toBuffer(),
+        ],
+        (program as any).programId
+      );
+
+      await (program as any).methods
+        .sendCollabRequest(combined, desiredRole ? { [desiredRole]: {} } : null)
+        .accounts({
+          collabRequest: collabRequestPDA,
+          sender: publicKey,
+          project: project.publicKey,
+          systemProgram: SystemProgram.programId,
+        })
+        .rpc();
+
+      alert('✅ Collaboration request sent successfully!');
+      setShowCollabModal(false);
+      setCollabMessage('');
+      setProofGithub('');
+      setProofTwitter('');
+      setDesiredRole('');
+      router.push('/requests');
+    } catch (error: any) {
+      console.error('Send collab request error:', error);
+      if (error.message?.includes('already in use')) {
+        alert('❌ You already sent a request for this project.');
+      } else {
+        alert('❌ Error: ' + (error.message || 'Unknown error'));
+      }
+    } finally {
+      setSending(false);
     }
   };
 
@@ -111,6 +305,8 @@ export default function ProjectDetailPage() {
   const techStack = asStringArray(account.techStack || account.tech_stack || []);
   const needs = asStringArray(account.contributionNeeds || account.needs || []);
   const collabIntent = asString(account.collaborationIntent || account.collabIntent || '');
+  // Normalize roles array across schema versions
+  const roles = (account.requiredRoles || account.roleRequirements || account.roles || []) as any[];
 
   return (
     <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
@@ -121,10 +317,10 @@ export default function ProjectDetailPage() {
         </Link>
 
         {/* Hero Header */}
-        <header className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 mb-6">
-          <div className="flex items-start gap-6">
+        <header className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-5">
+          <div className="flex items-start gap-4">
             {/* Logo */}
-            <div className="w-20 h-20 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
+            <div className="w-16 h-16 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
               {logoHash ? (
                 <img
                   src={typeof window !== 'undefined' ? (localStorage.getItem(`ipfs_image_${logoHash}`) || '') : ''}
@@ -141,14 +337,14 @@ export default function ProjectDetailPage() {
 
             {/* Title and Meta */}
             <div className="flex-1">
-              <h1 className={`${display.className} text-3xl md:text-4xl font-black text-gray-900 mb-3 tracking-tight`}>
+              <h1 className={`${display.className} text-2xl md:text-3xl font-bold text-gray-900 mb-2 tracking-tight`}>
                 {name}
               </h1>
               <div className="flex flex-wrap items-center gap-2">
-                <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold border ${statusBadge.color}`}>
+                <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadge.color}`}>
                   {statusBadge.label}
                 </span>
-                <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
+                <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
                   {COLLAB_LEVEL[levelKey]}
                 </span>
               </div>
@@ -172,20 +368,20 @@ export default function ProjectDetailPage() {
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
             {/* About */}
-            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-3">About This Project</h2>
-              <p className="text-gray-700 leading-relaxed">{description}</p>
+            <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+              <h2 className="text-base font-semibold text-gray-900 mb-2">About This Project</h2>
+              <p className="text-sm text-gray-700 leading-relaxed">{description}</p>
             </section>
 
             {/* Tech Stack */}
             {techStack.length > 0 && (
-              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-3">Tech Stack</h2>
+              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                <h2 className="text-base font-semibold text-gray-900 mb-2">Tech Stack</h2>
                 <div className="flex flex-wrap gap-2">
                   {techStack.map((tech: string, idx: number) => (
                     <span
                       key={idx}
-                      className="px-3 py-1.5 bg-[#00D4AA] text-gray-900 text-sm rounded-lg font-medium"
+                      className="px-2.5 py-1 bg-[#00D4AA] text-gray-900 text-xs rounded-lg font-medium"
                     >
                       {tech}
                     </span>
@@ -196,13 +392,13 @@ export default function ProjectDetailPage() {
 
             {/* Looking For */}
             {needs.length > 0 && (
-              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-3">Looking For</h2>
+              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-5">
+                <h2 className="text-base font-semibold text-gray-900 mb-2">Contribution Needs</h2>
                 <div className="flex flex-wrap gap-2">
                   {needs.map((need: string, idx: number) => (
                     <span
                       key={idx}
-                      className="px-3 py-1.5 bg-gray-900 text-white text-sm rounded-lg font-medium"
+                      className="px-2.5 py-1 bg-gray-900 text-white text-xs rounded-lg font-medium"
                     >
                       {need}
                     </span>
@@ -211,11 +407,44 @@ export default function ProjectDetailPage() {
               </section>
             )}
 
+            {/* Open Roles */}
+            {roles.length > 0 && (
+              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+                <h2 className="text-sm font-bold text-gray-900 mb-2">Open Roles</h2>
+                <div className="space-y-2.5">
+                  {roles.map((roleReq: any, idx: number) => {
+                    const roleKey = Object.keys(roleReq.role || {})[0] || '';
+                    const label = roleReq.label as string | undefined;
+                    const pretty = roleKey.charAt(0).toUpperCase() + roleKey.slice(1);
+                    const displayLabel = roleKey === 'others' && label ? `${pretty} — ${label}` : pretty;
+                    // Map counts across possible schema versions/keys
+                    const needed = Number(
+                      roleReq.needed ?? roleReq.slots ?? roleReq.total ?? roleReq.capacity ?? 0
+                    );
+                    const accepted = Number(
+                      roleReq.accepted ?? roleReq.filled ?? roleReq.current ?? 0
+                    );
+                    const isFull = accepted >= needed;
+                    return (
+                      <div key={idx} className="flex items-center justify-between text-sm">
+                        <span className="text-sm font-medium text-gray-900">{displayLabel}</span>
+                        <span className={`text-xs font-medium ${
+                          isFull ? 'text-red-600' : 'text-green-600'
+                        }`}>
+                          {accepted}/{needed} filled
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
             {/* Collaboration Intent */}
             {collabIntent && (
-              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-                <h2 className="text-lg font-bold text-gray-900 mb-3">About the Project</h2>
-                <p className="text-gray-700 leading-relaxed">{collabIntent}</p>
+              <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-4">
+                <h2 className="text-sm font-semibold text-gray-900 mb-2">What We're Looking For</h2>
+                <p className="text-sm text-gray-700 leading-relaxed">{collabIntent}</p>
               </section>
             )}
           </div>
@@ -250,10 +479,10 @@ export default function ProjectDetailPage() {
 
             {/* Actions */}
             {isOwner ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <button
                   onClick={() => router.push(`/projects/${project.publicKey.toBase58()}/edit`)}
-                  className="w-full px-4 py-3 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-bold rounded-lg"
+                  className="w-full px-4 py-2.5 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-medium rounded-lg text-sm"
                 >
                   Edit Project
                 </button>
@@ -263,22 +492,145 @@ export default function ProjectDetailPage() {
                       // deleteProject logic here
                     }
                   }}
-                  className="w-full px-4 py-3 bg-gray-900 hover:bg-gray-800 text-white font-bold rounded-lg"
+                  className="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg text-sm"
                 >
                   Delete Project
                 </button>
               </div>
+            ) : publicKey ? (
+              existingRequest && Object.keys(existingRequest.status || {})[0] !== 'rejected' ? (
+                <div className="w-full px-4 py-2.5 bg-gray-100 text-gray-600 font-medium rounded-lg text-center text-sm">
+                  {Object.keys(existingRequest.status)[0] === 'pending' && 'Request pending'}
+                  {Object.keys(existingRequest.status)[0] === 'underReview' && 'Request under review'}
+                  {Object.keys(existingRequest.status)[0] === 'accepted' && 'Collaboration in progress'}
+                  <a href="/requests" className="block mt-2 text-xs text-[#00D4AA] hover:underline">View request</a>
+                </div>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (existingRequest && Object.keys(existingRequest.status || {})[0] !== 'rejected') {
+                      alert('You already have a request for this project. Please check your Requests page.');
+                      return;
+                    }
+                    setShowCollabModal(true);
+                  }}
+                  className="w-full px-4 py-2.5 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-medium rounded-lg text-sm"
+                  disabled={checkingRequest}
+                >
+                  {checkingRequest ? 'Loading...' : 'Request to Collaborate'}
+                </button>
+              )
             ) : (
               <button
-                onClick={() => alert('Collaboration request feature coming soon!')}
-                className="w-full px-4 py-3 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-bold rounded-lg"
+                disabled
+                className="w-full px-4 py-2.5 bg-gray-300 text-gray-500 font-medium rounded-lg cursor-not-allowed text-sm"
               >
-                Request to Collaborate
+                Connect Wallet to Collaborate
               </button>
             )}
           </div>
         </div>
       </div>
+
+      {/* Collaboration Request Modal */}
+      {showCollabModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className={`bg-white rounded-2xl p-6 max-w-lg w-full max-h-[90vh] overflow-y-auto ${premium.className}`}>
+            <h2 className="text-xl font-semibold text-gray-900 mb-3">Send Collaboration Request</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Introduce yourself and explain why you'd like to collaborate on <span className="font-medium">{account.name}</span>
+            </p>
+            
+            <div className="space-y-4">
+              {/* Message */}
+              <div>
+                <label className="block text-sm text-gray-700 font-medium mb-1.5">Message *</label>
+                <textarea
+                  value={collabMessage}
+                  onChange={(e) => setCollabMessage(e.target.value)}
+                  maxLength={500}
+                  rows={6}
+                  className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]"
+                  placeholder="Hi! I'd love to collaborate on this project because..."
+                />
+                <div className="text-xs text-gray-500 mt-1">{collabMessage.length}/500 characters</div>
+              </div>
+
+              {/* GitHub Proof */}
+              <div>
+                <label className="block text-sm text-gray-700 font-medium mb-1.5">Proof of Work (GitHub) *</label>
+                <input
+                  type="url"
+                  value={proofGithub}
+                  onChange={(e) => setProofGithub(e.target.value)}
+                  placeholder="https://github.com/yourusername/your-repo"
+                  className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]"
+                />
+              </div>
+
+              {/* Twitter Contact */}
+              <div>
+                <label className="block text-sm text-gray-700 font-medium mb-1.5">Contact (Twitter/X) *</label>
+                <input
+                  type="text"
+                  value={proofTwitter}
+                  onChange={(e) => setProofTwitter(e.target.value)}
+                  placeholder="https://twitter.com/yourhandle or @yourhandle"
+                  className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]"
+                />
+                <p className="text-xs text-gray-500 mt-1">GitHub shows your work; Twitter/X is for contact.</p>
+              </div>
+
+              {/* Role Selection */}
+              {roles && roles.length > 0 && (
+                <div>
+                  <label className="block text-sm text-gray-700 font-medium mb-1.5">Desired Role *</label>
+                  <select
+                    value={desiredRole}
+                    onChange={(e) => setDesiredRole(e.target.value)}
+                    className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]"
+                    required
+                  >
+                    <option value="">Select a role...</option>
+                    {roles
+                      .filter((roleReq: any) => (roleReq.accepted ?? 0) < (roleReq.needed ?? 0))
+                      .map((roleReq: any, idx: number) => {
+                        const roleKey = Object.keys(roleReq.role || {})[0] || '';
+                        const label = roleReq.label as string | undefined;
+                        const pretty = roleKey.charAt(0).toUpperCase() + roleKey.slice(1);
+                        const displayLabel = roleKey === 'others' && label ? `${pretty} — ${label}` : pretty;
+                        const needed = roleReq.needed ?? 0;
+                        const accepted = roleReq.accepted ?? 0;
+                        return (
+                          <option key={idx} value={roleKey}>
+                            {displayLabel} ({accepted}/{needed} slots filled)
+                          </option>
+                        );
+                      })}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">Choose the role you want to fill on this project.</p>
+                </div>
+              )}
+            </div>
+
+            <div className="flex gap-3 mt-5">
+              <button
+                onClick={() => setShowCollabModal(false)}
+                className="flex-1 border border-gray-300 text-gray-700 hover:bg-gray-50 px-4 py-2.5 rounded-lg text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={sendCollabRequest}
+                disabled={!collabMessage.trim() || !proofGithub.trim() || !proofTwitter.trim() || sending}
+                className="flex-1 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 px-4 py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {sending ? 'Sending...' : 'Send Request'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
