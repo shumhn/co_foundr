@@ -164,10 +164,14 @@ export default function EnhancedUserProfile() {
       alert('Please fix the errors in the form');
       return;
     }
-    if (!publicKey || !program) return;
+    if (!publicKey || !program) {
+      alert('⚠️ Please connect your wallet first');
+      return;
+    }
 
     setLoading(true);
     try {
+      console.log('📝 Creating/updating profile with publicKey:', publicKey.toString());
       let profilePicHash = '';
       if (profilePicFile) {
         profilePicHash = await uploadImageToIPFS(profilePicFile);
@@ -183,6 +187,8 @@ export default function EnhancedUserProfile() {
       const metadataHash = await uploadMetadataToIPFS(metadataObj);
 
       const [userPDA] = getUserPDA(publicKey);
+      console.log('🔑 User PDA:', userPDA.toString());
+      console.log('👤 PublicKey:', publicKey.toString());
 
       if (isEditing && user) {
         await (program as any).methods
@@ -205,10 +211,35 @@ export default function EnhancedUserProfile() {
           .rpc();
         alert('Profile updated successfully!');
       } else {
+        console.log('🆕 Creating new profile...');
+        console.log('  - Username:', formData.username);
+        console.log('  - User PDA:', userPDA.toString());
+        console.log('  - Authority:', publicKey.toString());
+        
+        if (!publicKey) {
+          throw new Error('PublicKey is null - wallet may have disconnected');
+        }
+        
+        const { SystemProgram } = await import('@solana/web3.js');
+        
         await (program as any).methods
-          .createUser(formData.username, formData.role, formData.githubUrl, formData.bio, metadataHash)
-          .accounts({ user: userPDA, authority: publicKey, systemProgram: SystemProgram.programId })
+          .createUser(
+            formData.username,
+            formData.displayName || formData.username, // display_name
+            formData.role,
+            formData.country || '', // location
+            formData.bio,
+            formData.githubUrl,
+            metadataHash
+          )
+          .accounts({ 
+            user: userPDA, 
+            signer: publicKey,  // Changed from 'authority' to 'signer'
+            systemProgram: SystemProgram.programId 
+          })
           .rpc();
+        
+        console.log('✅ Profile created successfully!');
         alert('Profile created successfully!');
       }
 
@@ -221,8 +252,21 @@ export default function EnhancedUserProfile() {
       setProfilePicFile(null);
       setProfilePicPreview('');
     } catch (error: any) {
-      console.error('Profile save error:', error);
-      alert('Error: ' + (error.message || 'Unknown error occurred'));
+      console.error('❌ Profile save error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        logs: error.logs,
+        code: error.code
+      });
+      
+      let errorMsg = 'Failed to save profile';
+      if (error.message?.includes('Account `user` not provided')) {
+        errorMsg = 'Wallet connection issue. Please disconnect and reconnect your wallet, then try again.';
+      } else if (error.message) {
+        errorMsg = error.message;
+      }
+      
+      alert(`❌ ${errorMsg}`);
     } finally {
       setLoading(false);
     }
@@ -263,7 +307,9 @@ export default function EnhancedUserProfile() {
           <div className="pt-20">
             <div className="flex justify-between items-start mb-6">
               <div>
-                <h2 className={`${display.className} text-3xl font-bold text-gray-900 mb-1`}>{user.username}</h2>
+                <h2 className={`${display.className} text-3xl font-bold text-gray-900 mb-1`}>
+                  {user.display_name || user.username}
+                </h2>
                 <p className="text-[#00D4AA] font-semibold">@{user.username}</p>
                 <p className="text-gray-600 mt-1">{user.role}</p>
               </div>

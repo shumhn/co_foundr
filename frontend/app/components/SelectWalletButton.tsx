@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom';
 import { PublicKey } from '@solana/web3.js';
 
 export default function InlineWalletSelector() {
-  const { publicKey, wallets, disconnect } = useWallet();
+  const { publicKey, wallets, disconnect, select, connect, wallet } = useWallet();
   const [connecting, setConnecting] = useState(false);
   const [connectedWallet, setConnectedWallet] = useState<PublicKey | null>(null);
   const [isOpen, setIsOpen] = useState(false);
@@ -46,26 +46,52 @@ export default function InlineWalletSelector() {
     };
   }, [isOpen]);
 
-  const handleConnect = async (wallet: any) => {
-    if (!wallet || wallet.readyState !== 'Installed' || connecting) return;
+  const handleConnect = async (selectedWallet: any) => {
+    if (!selectedWallet || selectedWallet.readyState !== 'Installed' || connecting) return;
 
     try {
       setConnecting(true);
-      setIsOpen(false); // Close dropdown
-      console.log('🔗 Connecting to:', wallet.adapter.name);
+      setIsOpen(false);
+      console.log('🔗 Starting connection to:', selectedWallet.adapter.name);
       
-      // Direct adapter connection
-      await wallet.adapter.connect();
+      // First, select the wallet in the context
+      console.log('1️⃣ Selecting wallet in context...');
+      select(selectedWallet.adapter.name);
       
-      // Get the public key from the adapter
-      const pubKey = wallet.adapter.publicKey;
-      console.log('✅ Connected! Address:', pubKey?.toString());
+      // Wait for the selection to register
+      await new Promise(resolve => setTimeout(resolve, 300));
       
-      // Update local state immediately
-      setConnectedWallet(pubKey);
+      // Now connect using the context's connect method
+      console.log('2️⃣ Connecting via wallet context...');
+      await connect();
+      
+      console.log('✅ Connection successful!');
+      
+      // Wait a bit for publicKey to propagate
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Update local state with publicKey from context
+      if (publicKey) {
+        setConnectedWallet(publicKey);
+        console.log('✅ App-wide connection recognized! Address:', publicKey.toString());
+      } else {
+        console.warn('⚠️ PublicKey not yet available in context, but wallet should be connected');
+      }
     } catch (e: any) {
       console.error('❌ Connection error:', e);
-      alert(`Failed to connect: ${e?.message || e}`);
+      
+      // Fallback to direct adapter connection
+      console.log('⚠️ Attempting fallback: direct adapter connection...');
+      try {
+        await selectedWallet.adapter.connect();
+        const pubKey = selectedWallet.adapter.publicKey;
+        setConnectedWallet(pubKey);
+        console.log('✅ Connected via fallback! Address:', pubKey?.toString());
+        console.warn('⚠️ Note: App may not recognize connection. Try disconnect/reconnect.');
+      } catch (fallbackError: any) {
+        console.error('❌ Fallback also failed:', fallbackError);
+        alert(`Failed to connect: ${e?.message || fallbackError?.message || 'Unknown error'}`);
+      }
     } finally {
       setConnecting(false);
     }

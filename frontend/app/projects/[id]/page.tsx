@@ -316,13 +316,23 @@ export default function ProjectDetailPage() {
         })
         .rpc();
 
-      alert('✅ Collaboration request sent successfully!');
+      // Import showToast at the top of file if not already imported
+      const { showToast } = await import('../../components/Toast');
+      
+      // Show success notification
+      showToast('success', '✅ Request sent! The project owner will be notified.', 6000);
+      
+      // Close modal and reset form
       setShowCollabModal(false);
       setCollabMessage('');
       setProofGithub('');
       setProofTwitter('');
       setDesiredRole('');
-      router.push('/requests');
+      
+      // Navigate to requests page after a brief delay
+      setTimeout(() => {
+        router.push('/requests');
+      }, 1000);
     } catch (error: any) {
       console.error('Send collab request error:', error);
       if (error.message?.includes('already in use')) {
