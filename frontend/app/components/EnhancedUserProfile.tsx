@@ -38,12 +38,14 @@ export default function EnhancedUserProfile() {
   const [loading, setLoading] = useState(false);
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
+  const [needsMigration, setNeedsMigration] = useState(false);
+  const [accountAddress, setAccountAddress] = useState<any>(null); // Track actual account address (PDA or old)
 
   const [profilePicPreview, setProfilePicPreview] = useState<string>('');
   const [profilePicFile, setProfilePicFile] = useState<File | null>(null);
 
-  type ProfileForm = { username: string; displayName: string; role: string; country: string; bio: string; githubUrl: string; twitterUrl: string };
-  type ProfileErrors = { username: string; role: string; techStack: string; githubUrl: string; twitterUrl: string; displayName?: string };
+  type ProfileForm = { username: string; displayName: string; role: string; country: string; bio: string; githubUrl: string; twitterUrl: string; contactInfo: string };
+  type ProfileErrors = { username: string; role: string; techStack: string; githubUrl: string; twitterUrl: string; contactInfo: string; displayName?: string };
 
   const [formData, setFormData] = useState<ProfileForm>({
     username: '',
@@ -53,6 +55,7 @@ export default function EnhancedUserProfile() {
     bio: '',
     githubUrl: '',
     twitterUrl: '',
+    contactInfo: '',
   });
   // Multi-select tech stacks (saved to IPFS metadata)
   const [techStacks, setTechStacks] = useState<string[]>([]);
@@ -64,27 +67,97 @@ export default function EnhancedUserProfile() {
     techStack: '',
     githubUrl: '',
     twitterUrl: '',
+    contactInfo: '',
   });
 
   useEffect(() => {
+    // When wallet changes, immediately clear all state
+    setUser(null);
+    setMetadata(null);
+    setAccountAddress(null);
+    setNeedsMigration(false);
+    setShowCreateForm(false);
+    setIsEditing(false);
+    
     if (publicKey && program) {
+      setLoading(true);
       fetchUser();
+    } else {
+      setLoading(false);
     }
-  }, [publicKey, program]);
+    
+    // Cleanup function: reset state when wallet disconnects or changes
+    return () => {
+      setUser(null);
+      setMetadata(null);
+      setAccountAddress(null);
+      setNeedsMigration(false);
+      setShowCreateForm(false);
+      setIsEditing(false);
+    };
+  }, [publicKey?.toString(), program]); // Use publicKey.toString() to properly detect changes
 
   const fetchUser = async () => {
     if (!publicKey || !program) return;
+    console.log('🔍 Fetching user for wallet:', publicKey.toString());
+    
     try {
+      // First try the calculated PDA
       const [userPDA] = getUserPDA(publicKey);
-      const userAccount = await (program as any).account.user.fetch(userPDA);
+      console.log('📍 Calculated PDA:', userPDA.toString());
+      
+      let userAccount = null;
+      let accountAddress = userPDA;
+      
+      try {
+        console.log('🔎 Trying to fetch from calculated PDA...');
+        userAccount = await (program as any).account.user.fetch(userPDA);
+        console.log('✅ Found account at calculated PDA');
+        accountAddress = userPDA; // Store PDA address
+      } catch (e) {
+        // If not found at calculated PDA, try the old hardcoded address
+        console.log('❌ Not found at calculated PDA, checking old address...');
+        const { PublicKey } = await import('@solana/web3.js');
+        const oldAddress = new PublicKey('FWvQRwMZAWheL386Gcixjjr8YUjvx8BWTmaFCmWukxsP');
+        console.log('📍 Old address:', oldAddress.toString());
+        
+        try {
+          console.log('🔎 Trying to fetch from old address...');
+          userAccount = await (program as any).account.user.fetch(oldAddress);
+          accountAddress = oldAddress; // Store old address
+          console.log('✅ Found account at old address!');
+          console.log('📦 Account data:', userAccount);
+        } catch (e2) {
+          console.log('❌ User not found at either address');
+          console.log('Error:', e2);
+          setUser(null);
+          setAccountAddress(null);
+          setNeedsMigration(false);
+          return;
+        }
+      }
+      
+      // Store the actual account address in state
+      setAccountAddress(accountAddress);
+      console.log('💾 Stored account address:', accountAddress.toString());
+      
+      // Load user profile - contact info is optional
+      console.log('✅ User account loaded:', {
+        username: userAccount.username,
+        hasContactInfo: !!(userAccount.contactInfo && userAccount.contactInfo.trim())
+      });
+      
       setUser(userAccount);
+      setNeedsMigration(false); // No forced migration
+      
       if (userAccount.ipfsMetadataHash) {
         const ipfsData = await fetchMetadataFromIPFS(userAccount.ipfsMetadataHash);
         setMetadata(ipfsData);
       }
     } catch (error) {
-      console.log('User not found');
+      console.error('❌ Error fetching user:', error);
       setUser(null);
+      setNeedsMigration(false);
     }
   };
 
@@ -115,6 +188,7 @@ export default function EnhancedUserProfile() {
       techStack: '',
       githubUrl: '',
       twitterUrl: '',
+      contactInfo: '',
     };
     let isValid = true;
 
@@ -135,9 +209,11 @@ export default function EnhancedUserProfile() {
     }
 
     if (techStacks.length === 0) {
-      newErrors.techStack = 'Tech stack is required';
+      newErrors.techStack = 'At least one tech stack is required';
       isValid = false;
     }
+
+    // Contact info is optional - no validation needed
 
     if (!formData.githubUrl.trim()) {
       newErrors.githubUrl = 'GitHub profile URL is required';
@@ -159,6 +235,59 @@ export default function EnhancedUserProfile() {
     return isValid;
   };
 
+  const handleMigration = async (contactInfo: string) => {
+    if (!publicKey || !program) return;
+    
+    if (!contactInfo.trim()) {
+      alert('Contact info is required for migration');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      
+      // Use the ACTUAL old account address, not the calculated PDA
+      const { PublicKey } = await import('@solana/web3.js');
+      const oldAccountAddress = new PublicKey('FWvQRwMZAWheL386Gcixjjr8YUjvx8BWTmaFCmWukxsP');
+      
+      console.log('🔄 Migrating user account...');
+      console.log('   Old account:', oldAccountAddress.toString());
+      
+      await (program as any).methods
+        .migrateUserAccount(contactInfo)
+        .accounts({
+          user: oldAccountAddress,
+          signer: publicKey,
+          systemProgram: (await import('@solana/web3.js')).SystemProgram.programId,
+        })
+        .rpc();
+      
+      console.log('✅ Migration transaction confirmed. Waiting for account update...');
+      
+      // Wait a moment for the blockchain to propagate the update
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      // Force refetch with confirmed commitment to get the latest data
+      try {
+        const updatedAccount = await (program as any).account.user.fetch(oldAccountAddress, 'confirmed');
+        console.log('📦 Refetched account after migration:', updatedAccount);
+        setUser(updatedAccount);
+        setAccountAddress(oldAccountAddress); // ✅ Store the account address for Edit/Delete
+        setNeedsMigration(false);
+        alert('✅ Account migrated successfully! Your profile now includes contact info.');
+      } catch (e) {
+        console.error('Failed to refetch after migration:', e);
+        // Fall back to regular fetch
+        await fetchUser();
+      }
+    } catch (error: any) {
+      console.error('Migration error:', error);
+      alert('Failed to migrate account: ' + (error.message || 'Unknown error'));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleSubmit = async () => {
     if (!validateForm()) {
       alert('Please fix the errors in the form');
@@ -177,12 +306,15 @@ export default function EnhancedUserProfile() {
         profilePicHash = await uploadImageToIPFS(profilePicFile);
       }
 
+      // Upload metadata to IPFS
       const metadataObj = {
-        profile_picture: profilePicHash,
-        social_links: { twitter: formData.twitterUrl, github: formData.githubUrl },
-        display_name: formData.displayName || undefined,
-        tech_stack: techStacks.length ? techStacks : undefined,
-        country: formData.country || undefined,
+        display_name: formData.displayName,
+        tech_stack: techStacks,
+        profile_picture: profilePicFile ? await uploadImageToIPFS(profilePicFile) : '',
+        social_links: {
+          twitter: formData.twitterUrl,
+        },
+        country: formData.country,
       };
       const metadataHash = await uploadMetadataToIPFS(metadataObj);
 
@@ -190,9 +322,40 @@ export default function EnhancedUserProfile() {
       console.log('🔑 User PDA:', userPDA.toString());
       console.log('👤 PublicKey:', publicKey.toString());
 
+      // Before creating, check if any account exists at this PDA and delete it
+      if (!isEditing) {
+        try {
+          const existingAccount = await (program as any).account.user.fetch(userPDA);
+          console.log('⚠️ Account already exists at this PDA - deleting it first');
+          
+          await (program as any).methods
+            .deleteUser()
+            .accounts({
+              user: userPDA,
+              signer: publicKey,
+              wallet: publicKey,
+            })
+            .rpc();
+          
+          console.log('✅ Existing account deleted');
+          // Wait for deletion to propagate
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        } catch (error: any) {
+          // If account doesn't exist or can't be fetched, that's fine - we'll create a new one
+          console.log('No existing account at this PDA (or failed to fetch)');
+        }
+      }
+
       if (isEditing && user) {
+        // Use the stored account address (not calculated PDA)
+        if (!accountAddress) {
+          alert('Error: Account address not found. Please refresh the page.');
+          setLoading(false);
+          return;
+        }
+        console.log('✏️ Updating account at:', accountAddress.toString());
         await (program as any).methods
-          // IDL: update_user(display_name?, role?, location?, bio?, github_link?, ipfs_metadata_hash?, open_to_collab?, profile_visibility?)
+          // IDL: update_user(display_name?, role?, location?, bio?, github_link?, ipfs_metadata_hash?, contact_info?, open_to_collab?, profile_visibility?)
           .updateUser(
             formData.displayName ? formData.displayName : null, // display_name
             formData.role ? formData.role : null, // role
@@ -200,11 +363,12 @@ export default function EnhancedUserProfile() {
             formData.bio ? formData.bio : null, // bio
             formData.githubUrl ? formData.githubUrl : null, // github_link
             metadataHash ? metadataHash : null, // ipfs_metadata_hash
+            formData.contactInfo ? formData.contactInfo : null, // contact_info
             null, // open_to_collab
             null // profile_visibility
           )
           .accounts({ 
-            user: userPDA,
+            user: accountAddress,
             signer: publicKey,
             wallet: publicKey,
           })
@@ -230,7 +394,8 @@ export default function EnhancedUserProfile() {
             formData.country || '', // location
             formData.bio,
             formData.githubUrl,
-            metadataHash
+            metadataHash,
+            formData.contactInfo || '' // contact_info (optional, defaults to empty)
           )
           .accounts({ 
             user: userPDA, 
@@ -246,7 +411,7 @@ export default function EnhancedUserProfile() {
       await fetchUser();
       setShowCreateForm(false);
       setIsEditing(false);
-      setFormData({ username: '', displayName: '', role: '', country: '', bio: '', githubUrl: '', twitterUrl: '' });
+      setFormData({ username: '', displayName: '', role: '', country: '', bio: '', githubUrl: '', twitterUrl: '', contactInfo: '' });
       setTechStacks([]);
       setCustomTech('');
       setProfilePicFile(null);
@@ -283,15 +448,71 @@ export default function EnhancedUserProfile() {
 
   // Show existing profile
   if (user && !showCreateForm && !isEditing) {
+    console.log('🔍 Profile View State:', {
+      hasUser: !!user,
+      needsMigration,
+      hasAccountAddress: !!accountAddress,
+      accountAddress: accountAddress?.toString(),
+      contactInfo: user?.contactInfo
+    });
+    
     return (
+      <>
+        {/* Migration Banner */}
+        {needsMigration && (
+          <div className="bg-yellow-50 border-l-4 border-yellow-400 p-6 mb-6 rounded-lg">
+            <div className="flex items-start">
+              <div className="flex-shrink-0">
+                <svg className="h-6 w-6 text-yellow-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div className="ml-3 flex-1">
+                <h3 className="text-lg font-bold text-yellow-800 mb-2">Account Migration Required</h3>
+                <p className="text-sm text-yellow-700 mb-4">
+                  Your profile is missing the Contact Info field. Add it below to upgrade your account and keep all your data!
+                </p>
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <label className="block text-sm font-semibold text-yellow-800 mb-2">
+                      Contact Info (WhatsApp, Discord, etc.) <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      id="migration-contact-info"
+                      className="w-full bg-white border border-yellow-300 text-gray-900 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-yellow-400"
+                      placeholder="WhatsApp: +1234567890, Discord: username#1234"
+                    />
+                  </div>
+                  <button
+                    onClick={() => {
+                      const input = document.getElementById('migration-contact-info') as HTMLInputElement;
+                      if (input) {
+                        handleMigration(input.value);
+                      }
+                    }}
+                    disabled={loading}
+                    className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg disabled:opacity-50"
+                  >
+                    {loading ? 'Migrating...' : 'Migrate Account'}
+                  </button>
+                </div>
+                <p className="text-xs text-yellow-600 mt-2">
+                  ✅ All your data will be preserved • ✅ Account will be expanded • ✅ Takes 2 seconds
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+        
       <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
         {/* Header */}
-        <div className="h-32 bg-linear-to-r from-[#00D4AA] to-[#00B894]"></div>
+        <div className="h-24 bg-gradient-to-r from-[#00D4AA] to-[#00B894]"></div>
 
-        <div className="relative px-8 pb-8">
+        <div className="relative px-4 pb-2">
           {/* Profile Picture */}
-          <div className="absolute -top-16 left-8">
-            <div className="w-32 h-32 rounded-full border-4 border-white bg-gray-100 flex items-center justify-center overflow-hidden">
+          <div className="absolute -top-10 left-4">
+            <div className="w-20 h-20 rounded-full border-4 border-white bg-gray-100 flex items-center justify-center overflow-hidden">
               {metadata?.profile_picture ? (
                 <img 
                   src={typeof window !== 'undefined' ? localStorage.getItem(`ipfs_image_${metadata.profile_picture}`) || '' : ''} 
@@ -299,28 +520,23 @@ export default function EnhancedUserProfile() {
                   className="w-full h-full object-cover" 
                 />
               ) : (
-                <span className="text-4xl text-gray-400">?</span>
+                <span className="text-3xl text-gray-400">?</span>
               )}
             </div>
           </div>
 
-          <div className="pt-20">
-            <div className="flex justify-between items-start mb-6">
+          <div className="pt-12">
+            <div className="flex justify-between items-start mb-2">
               <div>
-                <h2 className={`${display.className} text-3xl font-bold text-gray-900 mb-1`}>
+                <h2 className={`${display.className} text-xl font-bold text-gray-900 mb-0.5`}>
                   {user.display_name || user.username}
                 </h2>
-                <p className="text-[#00D4AA] font-semibold">@{user.username}</p>
-                <p className="text-gray-600 mt-1">{user.role}</p>
+                <p className="text-[#00D4AA] font-semibold text-sm">@{user.username}</p>
+                <p className="text-gray-600 text-sm mb-0">{user.role}</p>
               </div>
 
-              {/* Country display */}
-              {(formData.country || (metadata as any)?.country || (user as any)?.location) && (
-                <div className="mt-4">
-                  <h3 className="text-gray-900 font-bold mb-1">Country</h3>
-                  <p className="text-gray-700">{(metadata as any)?.country || (user as any)?.location}</p>
-                </div>
-              )}
+              {/* Action Buttons - Top Right */}
+              <div className="flex gap-2">
               <button
                 onClick={() => {
                   setFormData({
@@ -331,6 +547,7 @@ export default function EnhancedUserProfile() {
                     bio: user.bio,
                     githubUrl: user.githubLink,
                     twitterUrl: metadata?.social_links?.twitter || '',
+                    contactInfo: user.contactInfo || '',
                   });
                   const existingTech = (metadata as any)?.tech_stack;
                   if (Array.isArray(existingTech)) {
@@ -343,17 +560,58 @@ export default function EnhancedUserProfile() {
                   setProfilePicPreview(metadata?.profile_picture || '');
                   setIsEditing(true);
                 }}
-                className="px-5 py-3 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-bold rounded-lg"
+                className="px-4 py-2 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-semibold rounded-lg transition-colors text-sm"
               >
                 Edit Profile
               </button>
+              <button
+                onClick={async () => {
+                  if (!confirm('Are you sure you want to delete your profile? This action cannot be undone.')) return;
+                  try {
+                    setLoading(true);
+                    if (!accountAddress) {
+                      alert('Error: Account address not found. Please refresh the page.');
+                      setLoading(false);
+                      return;
+                    }
+                    console.log('🗑️ Deleting account at:', accountAddress.toString());
+                    await (program as any).methods
+                      .deleteUser()
+                      .accounts({
+                        user: accountAddress,
+                        signer: publicKey,
+                        wallet: publicKey,
+                      })
+                      .rpc();
+                    alert('Profile deleted successfully! You can now create a new one.');
+                    setUser(null);
+                    setMetadata(null);
+                  } catch (error: any) {
+                    console.error('Delete error:', error);
+                    alert('Failed to delete profile: ' + (error.message || 'Unknown error'));
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+                className="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white font-semibold rounded-lg transition-colors text-sm"
+              >
+                Delete Profile
+              </button>
+              </div>
             </div>
 
-            <div className="space-y-6">
+            <div className="space-y-4 mt-3">
               {user.bio && (
                 <div>
                   <h3 className="text-gray-900 font-bold mb-2">Bio</h3>
                   <p className="text-gray-700 leading-relaxed">{user.bio}</p>
+                </div>
+              )}
+
+              {(user.contactInfo || user.contact_info) && (
+                <div>
+                  <h3 className="text-gray-900 font-bold mb-2">Contact Info</h3>
+                  <p className="text-gray-700 leading-relaxed">{user.contactInfo || user.contact_info}</p>
                 </div>
               )}
 
@@ -405,6 +663,7 @@ export default function EnhancedUserProfile() {
           </div>
         </div>
       </div>
+      </>
     );
   }
 
@@ -597,6 +856,24 @@ export default function EnhancedUserProfile() {
           {errors.twitterUrl && <p className="text-red-600 text-sm mt-1">{errors.twitterUrl}</p>}
         </div>
 
+        {/* Contact Info - Optional but Recommended */}
+        <div>
+          <label className="block text-gray-700 font-semibold mb-2">
+            Contact Info <span className="text-xs text-gray-500">(Optional but recommended)</span>
+          </label>
+          <input
+            type="text"
+            value={formData.contactInfo}
+            onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
+            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            placeholder="WhatsApp: +1234567890, Discord: username#1234, or Meeting link"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            How should people reach you? (WhatsApp, Discord, Telegram, meeting link, etc.)
+          </p>
+          {errors.contactInfo && <p className="text-red-600 text-sm mt-1">{errors.contactInfo}</p>}
+        </div>
+
         {/* Actions */}
         <div className="flex gap-3 pt-4">
           {(showCreateForm || isEditing) && (
@@ -604,7 +881,7 @@ export default function EnhancedUserProfile() {
               onClick={() => {
                 setShowCreateForm(false);
                 setIsEditing(false);
-                setFormData({ username: '', displayName: '', role: '', country: '', bio: '', githubUrl: '', twitterUrl: '' });
+                setFormData({ username: '', displayName: '', role: '', country: '', bio: '', githubUrl: '', twitterUrl: '', contactInfo: '' });
                 setTechStacks([]);
                 setCustomTech('');
                 setProfilePicFile(null);

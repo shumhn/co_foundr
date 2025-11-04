@@ -110,6 +110,62 @@
       ]
     },
     {
+      "name": "close_project",
+      "docs": [
+        "Close project for collaboration (stop accepting requests)"
+      ],
+      "discriminator": [
+        117,
+        209,
+        53,
+        106,
+        93,
+        55,
+        112,
+        49
+      ],
+      "accounts": [
+        {
+          "name": "project",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  106,
+                  101,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "account",
+                "path": "project.name",
+                "account": "Project"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "project"
+          ]
+        }
+      ],
+      "args": []
+    },
+    {
       "name": "create_project",
       "docs": [
         "Create a new project with enhanced fields"
@@ -154,24 +210,7 @@
           }
         },
         {
-          "name": "user",
-          "pda": {
-            "seeds": [
-              {
-                "kind": "const",
-                "value": [
-                  117,
-                  115,
-                  101,
-                  114
-                ]
-              },
-              {
-                "kind": "account",
-                "path": "creator"
-              }
-            ]
-          }
+          "name": "user"
         },
         {
           "name": "creator",
@@ -318,6 +357,10 @@
         },
         {
           "name": "ipfs_metadata_hash",
+          "type": "string"
+        },
+        {
+          "name": "contact_info",
           "type": "string"
         }
       ]
@@ -489,7 +532,7 @@
     {
       "name": "delete_user",
       "docs": [
-        "Delete (deactivate) user profile"
+        "Delete user profile (closes account and returns SOL)"
       ],
       "discriminator": [
         186,
@@ -635,6 +678,43 @@
       "args": []
     },
     {
+      "name": "migrate_user_account",
+      "docs": [
+        "Migrate old user account to new schema with contact_info field"
+      ],
+      "discriminator": [
+        198,
+        152,
+        90,
+        54,
+        134,
+        206,
+        92,
+        198
+      ],
+      "accounts": [
+        {
+          "name": "user",
+          "writable": true
+        },
+        {
+          "name": "signer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "contact_info",
+          "type": "string"
+        }
+      ]
+    },
+    {
       "name": "reject_collab_request",
       "docs": [
         "Reject a collaboration request"
@@ -735,6 +815,62 @@
           "type": "string"
         }
       ]
+    },
+    {
+      "name": "reopen_project",
+      "docs": [
+        "Reopen project for collaboration (start accepting requests again)"
+      ],
+      "discriminator": [
+        159,
+        174,
+        25,
+        99,
+        188,
+        113,
+        94,
+        108
+      ],
+      "accounts": [
+        {
+          "name": "project",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  112,
+                  114,
+                  111,
+                  106,
+                  101,
+                  99,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "creator"
+              },
+              {
+                "kind": "account",
+                "path": "project.name",
+                "account": "Project"
+              }
+            ]
+          }
+        },
+        {
+          "name": "creator",
+          "writable": true,
+          "signer": true,
+          "relations": [
+            "project"
+          ]
+        }
+      ],
+      "args": []
     },
     {
       "name": "send_collab_request",
@@ -1136,6 +1272,12 @@
           }
         },
         {
+          "name": "contact_info",
+          "type": {
+            "option": "string"
+          }
+        },
+        {
           "name": "open_to_collab",
           "type": {
             "option": "bool"
@@ -1363,20 +1505,44 @@
     },
     {
       "code": 6020,
-      "name": "RoleNotFound"
+      "name": "ContactInfoTooLong",
+      "msg": "Contact info must be 200 characters or less"
     },
     {
       "code": 6021,
+      "name": "ContactInfoRequired",
+      "msg": "Contact info is required (WhatsApp, Discord, meeting link, etc.)"
+    },
+    {
+      "code": 6022,
+      "name": "RoleNotFound"
+    },
+    {
+      "code": 6023,
       "name": "RoleSlotFull",
       "msg": "Role slot is full (all positions filled)"
     },
     {
-      "code": 6022,
+      "code": 6024,
       "name": "RoleLabelTooLong",
       "msg": "Role label must be 24 characters or less"
     }
   ],
   "types": [
+    {
+      "name": "CollaborationAcceptance",
+      "type": {
+        "kind": "enum",
+        "variants": [
+          {
+            "name": "Open"
+          },
+          {
+            "name": "Closed"
+          }
+        ]
+      }
+    },
     {
       "name": "CollaborationLevel",
       "type": {
@@ -1534,6 +1700,14 @@
             "type": {
               "defined": {
                 "name": "ProjectStatus"
+              }
+            }
+          },
+          {
+            "name": "accepting_collaborations",
+            "type": {
+              "defined": {
+                "name": "CollaborationAcceptance"
               }
             }
           },
@@ -1722,6 +1896,10 @@
           },
           {
             "name": "ipfs_metadata_hash",
+            "type": "string"
+          },
+          {
+            "name": "contact_info",
             "type": "string"
           },
           {

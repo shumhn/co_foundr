@@ -119,23 +119,42 @@ export default function RequestDetailPage() {
     run();
   }, [program, params.id]);
 
-  const accept = async (message?: string) => {
+  const accept = async (message?: string, contactInfo?: string) => {
     if (!canUse || !req) return;
-    const finalMessage = message || ownerMessage.trim() || 'Request accepted';
+    
+    // Build the final message with contact info
+    let finalMessage = message || ownerMessage.trim() || 'Request accepted';
+    if (contactInfo && contactInfo.trim()) {
+      // Use plain text label to avoid multi-byte emoji increasing byte-size
+      finalMessage = `${finalMessage}\n\nContact: ${contactInfo.trim()}`;
+    }
+
+    // Trim to on-chain limit (500 bytes)
+    try {
+      const enc = new TextEncoder();
+      while (enc.encode(finalMessage).length > 500) {
+        finalMessage = finalMessage.slice(0, -1);
+      }
+      if ((message || ownerMessage || '').length > 0 && (enc.encode(message || ownerMessage).length !== enc.encode(finalMessage).length)) {
+        // Notify about trimming only if user entered something and trimming occurred
+        console.warn('Acceptance message trimmed to fit on-chain limit (500 bytes).');
+      }
+    } catch {}
+    
     // Hard preflight: block legacy requests owned by old program
     try {
       const info = await (program as any).provider.connection.getAccountInfo(req.publicKey, 'processed');
       const owner = info?.owner?.toBase58?.();
       const current = (program as any).programId?.toBase58?.();
       if (owner && current && owner !== current) {
-        setIsLegacy(true);
-        alert('This request belongs to an earlier program version and cannot be updated. Please create a new request.');
+        alert('❌ This is a legacy request. Cannot accept via new program.');
         return;
       }
     } catch {}
+    // Optimistic UI: show accepted immediately (with trimmed finalMessage)
+    const updated = { ...req.account, status: { accepted: {} }, ownerMessage: finalMessage };
+    setReq({ publicKey: req.publicKey, account: updated });
     setActing('accept');
-    // Optimistic UI
-    setReq((prev: any) => prev ? { ...prev, account: { ...prev.account, status: { accepted: {} } } } : prev);
     try {
       await rpcWithRetry(() =>
         (program as any).methods
@@ -428,9 +447,9 @@ export default function RequestDetailPage() {
           isOpen={!!showMessageModal}
           type={showMessageModal || 'accept'}
           onClose={() => setShowMessageModal(null)}
-          onSubmit={(msg) => {
+          onSubmit={(msg, contactInfo) => {
             setOwnerMessage(msg);
-            if (showMessageModal === 'accept') accept(msg);
+            if (showMessageModal === 'accept') accept(msg, contactInfo);
             else if (showMessageModal === 'reject') reject(msg);
             setShowMessageModal(null);
           }}

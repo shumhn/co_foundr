@@ -50,20 +50,42 @@ export function useDashboardData() {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
       try {
-        // Fetch user profile
+        // Fetch user profile - check both PDA and legacy address
         const [userPda] = getUserPDA(publicKey);
-        const profile = await (program as any).account.user.fetchNullable(userPda);
+        let profile = null;
+        
+        try {
+          profile = await (program as any).account.user.fetch(userPda);
+        } catch (e) {
+          // If not found at PDA, try legacy address
+          try {
+            const oldAddress = new PublicKey('FWvQRwMZAWheL386Gcixjjr8YUjvx8BWTmaFCmWukxsP');
+            profile = await (program as any).account.user.fetch(oldAddress);
+          } catch (e2) {
+            // Profile doesn't exist at either address
+            profile = null;
+          }
+        }
 
         // Parallel fetch: projects, sent requests, received requests
-        const [allProjects, sentRequests, receivedRequests] = await Promise.all([
-          (program as any).account.project.all(),
-          (program as any).account.collaborationRequest.all([
-            { memcmp: { offset: 8, bytes: publicKey.toBase58() } }, // from = publicKey
-          ]),
-          (program as any).account.collaborationRequest.all([
-            { memcmp: { offset: 8 + 32, bytes: publicKey.toBase58() } }, // to = publicKey
-          ]),
-        ]);
+        let allProjects: any[] = [];
+        let sentRequests: any[] = [];
+        let receivedRequests: any[] = [];
+        
+        try {
+          [allProjects, sentRequests, receivedRequests] = await Promise.all([
+            (program as any).account.project.all().catch(() => []),
+            (program as any).account.collaborationRequest.all([
+              { memcmp: { offset: 8, bytes: publicKey.toBase58() } }, // from = publicKey
+            ]).catch(() => []),
+            (program as any).account.collaborationRequest.all([
+              { memcmp: { offset: 8 + 32, bytes: publicKey.toBase58() } }, // to = publicKey
+            ]).catch(() => []),
+          ]);
+        } catch (err) {
+          console.error('Error fetching dashboard data:', err);
+          // Continue with empty arrays
+        }
 
         // Filter owned projects
         const ownedProjects = allProjects.filter(

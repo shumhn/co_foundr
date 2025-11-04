@@ -404,6 +404,18 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
         const [newProjectPDA] = await getProjectPDA(publicKey, name);
         projectPDA = newProjectPDA;
 
+        // Preflight: prevent duplicate name PDA collisions (legacy or existing projects)
+        try {
+          const info = await (program as any).provider.connection.getAccountInfo(projectPDA, 'processed');
+          if (info) {
+            alert('A project with this name already exists for your wallet. Please choose a different name or edit the existing project.');
+            setLoading(false);
+            return;
+          }
+        } catch (e) {
+          // Ignore RPC hiccups; continue to attempt creation
+        }
+
         await (program as any).methods
           .createProject(
             safeName,

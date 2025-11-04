@@ -12,6 +12,32 @@ export function useNotifications() {
   const [lastCheckedTo, setLastCheckedTo] = useState<Record<string, string>>({});
   const checkInProgress = useRef(false);
 
+  // Helper to check if we've already notified about this incoming request
+  const hasBeenNotified = (reqId: string): boolean => {
+    if (typeof window === 'undefined' || !publicKey) return false;
+    try {
+      const key = `notifiedIncoming_${publicKey.toBase58()}`;
+      const stored = localStorage.getItem(key);
+      if (!stored) return false;
+      const notified = new Set(JSON.parse(stored));
+      return notified.has(reqId);
+    } catch {
+      return false;
+    }
+  };
+
+  // Helper to mark an incoming request as notified
+  const markAsNotified = (reqId: string) => {
+    if (typeof window === 'undefined' || !publicKey) return;
+    try {
+      const key = `notifiedIncoming_${publicKey.toBase58()}`;
+      const stored = localStorage.getItem(key);
+      const notified = stored ? new Set(JSON.parse(stored)) : new Set();
+      notified.add(reqId);
+      localStorage.setItem(key, JSON.stringify(Array.from(notified)));
+    } catch {}
+  };
+
   useEffect(() => {
     if (!program || !publicKey) return;
 
@@ -60,8 +86,11 @@ export function useNotifications() {
           const prevStatus = lastCheckedTo[key];
 
           // Notify owner when a new pending request arrives
-          if (!prevStatus && status === 'pending') {
+          // BUT only if we haven't already notified about it (check localStorage)
+          if (!prevStatus && status === 'pending' && !hasBeenNotified(key)) {
             showToast('info', '✉️ New collaboration request received', 6000);
+            // Mark as notified so we don't show it again
+            markAsNotified(key);
           }
 
           setLastCheckedTo(prev => ({ ...prev, [key]: status }));

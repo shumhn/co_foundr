@@ -6,17 +6,24 @@ interface MessageModalProps {
   isOpen: boolean;
   type: 'accept' | 'reject';
   onClose: () => void;
-  onSubmit: (message: string) => void;
+  onSubmit: (message: string, contactInfo?: string) => void;
 }
 
 export function MessageModal({ isOpen, type, onClose, onSubmit }: MessageModalProps) {
   const [message, setMessage] = useState('');
+  const [contactInfo, setContactInfo] = useState('');
 
   if (!isOpen) return null;
 
   const handleSubmit = () => {
-    onSubmit(message);
+    // For accept, contact info is mandatory
+    if (type === 'accept' && !contactInfo.trim()) {
+      alert('Please provide your contact information (WhatsApp, Discord, email, etc.)');
+      return;
+    }
+    onSubmit(message, contactInfo);
     setMessage('');
+    setContactInfo('');
   };
 
   const title = type === 'accept' ? 'Accept Request' : 'Reject Request';
@@ -30,6 +37,27 @@ export function MessageModal({ isOpen, type, onClose, onSubmit }: MessageModalPr
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50" onClick={onClose}>
       <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full mx-4 border border-gray-700" onClick={(e) => e.stopPropagation()}>
         <h2 className="text-xl font-bold text-white mb-4">{title}</h2>
+        
+        {/* Contact Information Field (only for accept) */}
+        {type === 'accept' && (
+          <div className="mb-4">
+            <label className="block text-sm font-semibold text-gray-300 mb-2">
+              Contact Information <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="text"
+              value={contactInfo}
+              onChange={(e) => setContactInfo(e.target.value)}
+              placeholder="WhatsApp: +1234567890, Discord: username#1234, Email: you@example.com"
+              maxLength={200}
+              className="w-full bg-gray-700 text-white rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500 border border-gray-600"
+            />
+            <p className="text-xs text-gray-400 mt-1">
+              Required: Provide how the applicant can reach you to start collaborating
+            </p>
+          </div>
+        )}
+        
         <div className="mb-4">
           <label className="block text-sm text-gray-300 mb-2">
             Message to applicant

@@ -126,6 +126,38 @@ function RequestsPageContent() {
 
   const canUse = useMemo(() => !!program && !!publicKey, [program, publicKey]);
 
+  // Mark all current requests as read (clears the notification badge)
+  const markAllAsRead = () => {
+    if (typeof window === 'undefined' || !publicKey) return;
+    try {
+      // Mark incoming requests as read
+      const incomingKey = `notifiedIncoming_${publicKey.toBase58()}`;
+      const storedIncoming = localStorage.getItem(incomingKey);
+      const notifiedIncoming = storedIncoming ? new Set(JSON.parse(storedIncoming)) : new Set();
+      
+      // Add all current received request IDs to notified set
+      received.forEach(req => {
+        notifiedIncoming.add(req.publicKey.toString());
+      });
+      localStorage.setItem(incomingKey, JSON.stringify(Array.from(notifiedIncoming)));
+      
+      // Mark outgoing request responses as read
+      const outgoingKey = `notifiedRequests_${publicKey.toBase58()}`;
+      const storedOutgoing = localStorage.getItem(outgoingKey);
+      const notifiedOutgoing = storedOutgoing ? new Set(JSON.parse(storedOutgoing)) : new Set();
+      
+      // Add all current sent request IDs to notified set
+      sent.forEach(req => {
+        notifiedOutgoing.add(req.publicKey.toString());
+      });
+      localStorage.setItem(outgoingKey, JSON.stringify(Array.from(notifiedOutgoing)));
+      
+      console.log('✅ Marked all requests as read');
+    } catch (e) {
+      console.error('Failed to mark requests as read:', e);
+    }
+  };
+
   const fetchAll = async () => {
     if (!program || !publicKey) return;
     setLoading(true);
@@ -149,9 +181,44 @@ function RequestsPageContent() {
       }
       // Sort newest first
       decoded.sort((x: any, y: any) => (y.account.timestamp || 0) - (x.account.timestamp || 0));
+      
+      // Received: requests TO you (as project owner)
       const rec = decoded.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());
+      
+      // Sent: requests FROM you (as applicant)
       const snt = decoded.filter((a: any) => a.account.from?.toString?.() === publicKey.toString());
-      setReceived(rec);
+      
+      // Special case: If you're the applicant and the request is accepted with an owner reply,
+      // also show it in Received (because you're receiving a response)
+      const sentWithReplies = decoded.filter((a: any) => {
+        const isSender = a.account.from?.toString?.() === publicKey.toString();
+        const status = Object.keys(a.account.status || {})[0];
+        const isAccepted = status === 'accepted';
+        const ownerMsg = a.account.owner_message || a.account.ownerMessage || '';
+        const hasOwnerReply = ownerMsg.trim().length > 0;
+        
+        // Debug logging
+        if (isSender && isAccepted) {
+          console.log('🔍 Checking sent request for owner reply:');
+          console.log('  - Request ID:', a.publicKey.toString().slice(0, 8));
+          console.log('  - Status:', status);
+          console.log('  - Owner message:', ownerMsg);
+          console.log('  - Has owner reply:', hasOwnerReply);
+          console.log('  - Will show in Received:', isSender && isAccepted && hasOwnerReply);
+        }
+        
+        return isSender && isAccepted && hasOwnerReply;
+      });
+      
+      // Combine received requests with sent requests that have owner replies
+      const allReceived = [...rec, ...sentWithReplies];
+      
+      // Remove duplicates by public key
+      const uniqueReceived = allReceived.filter((item, index, self) =>
+        index === self.findIndex((t) => t.publicKey.toString() === item.publicKey.toString())
+      );
+      
+      setReceived(uniqueReceived);
       setSent(snt);
     } catch (e) {
       console.error('Fetch collaboration requests error:', e);
@@ -164,6 +231,17 @@ function RequestsPageContent() {
     fetchAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [program, publicKey]);
+
+  // Mark all requests as read when they're loaded (clears the badge)
+  useEffect(() => {
+    if (!loading && (received.length > 0 || sent.length > 0)) {
+      // Small delay to ensure requests are displayed first
+      setTimeout(() => {
+        markAllAsRead();
+      }, 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, received.length, sent.length]);
 
   // Handle highlight from URL query parameter
   useEffect(() => {

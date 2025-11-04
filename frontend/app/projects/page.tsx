@@ -5,6 +5,11 @@ import { useWallet, useConnection } from '@solana/wallet-adapter-react';
 import { useAnchorProgram, getUserPDA } from '../hooks/useAnchorProgram';
 import { PublicKey } from '@solana/web3.js';
 import Link from 'next/link';
+import { getProjectPDA } from '../utils/programHelpers';
+import { SystemProgram } from '@solana/web3.js';
+import { Sora } from 'next/font/google';
+
+const premium = Sora({ subsets: ['latin'], weight: ['400', '500', '600', '700'] });
 
 // Tech stack with icons for display
 const TECH_ICONS: Record<string, string> = {
@@ -21,19 +26,19 @@ const TECH_ICONS: Record<string, string> = {
 };
 
 const STATUS_BADGES: Record<string, { label: string; color: string }> = {
-  justStarted: { label: '🌱 Just Started', color: 'bg-green-600' },
-  inProgress: { label: '🚧 In Progress', color: 'bg-blue-600' },
-  nearlyComplete: { label: '🎯 Nearly Complete', color: 'bg-yellow-600' },
-  completed: { label: '✅ Completed', color: 'bg-purple-600' },
-  activeDev: { label: '🔥 Active Dev', color: 'bg-red-600' },
-  onHold: { label: '⏸️ On Hold', color: 'bg-gray-600' },
+  justStarted: { label: 'Just Started', color: 'bg-emerald-500 text-white border-emerald-500' },
+  inProgress: { label: 'In Progress', color: 'bg-blue-500 text-white border-blue-500' },
+  nearlyComplete: { label: 'Nearly Complete', color: 'bg-amber-500 text-white border-amber-500' },
+  completed: { label: 'Completed', color: 'bg-purple-500 text-white border-purple-500' },
+  activeDev: { label: 'Active Dev', color: 'bg-rose-500 text-white border-rose-500' },
+  onHold: { label: 'On Hold', color: 'bg-slate-500 text-white border-slate-500' },
 };
 
 const COLLAB_LEVEL_BADGES: Record<string, { label: string; color: string }> = {
-  beginner: { label: 'Beginner', color: 'bg-green-700' },
-  intermediate: { label: 'Intermediate', color: 'bg-blue-700' },
-  advanced: { label: 'Advanced', color: 'bg-purple-700' },
-  allLevels: { label: 'All Levels', color: 'bg-gray-700' },
+  beginner: { label: 'Beginner', color: 'bg-cyan-500 text-white border-cyan-500' },
+  intermediate: { label: 'Intermediate', color: 'bg-indigo-500 text-white border-indigo-500' },
+  advanced: { label: 'Advanced', color: 'bg-fuchsia-500 text-white border-fuchsia-500' },
+  allLevels: { label: 'All Levels', color: 'bg-violet-500 text-white border-violet-500' },
 };
 
 export default function ProjectsPage() {
@@ -66,7 +71,9 @@ export default function ProjectsPage() {
         window.location.href = '/profile';
         return;
       }
-      const name = 'Cofounder Sample Project';
+      // Use timestamp to ensure unique project name each time
+      const timestamp = Date.now();
+      const name = `Sample Project ${timestamp}`;
       const description = 'A sample Web3 collaboration project on Solana. This project demonstrates the full project flow: tech stack, contribution needs, collaboration level, status, and collaboration intent.';
       const github = 'https://github.com/example/sample-repo';
       const logoHash = '';
@@ -87,6 +94,17 @@ export default function ProjectsPage() {
       const [projectPDA] = await getProjectPDA(publicKey as any, name);
 
       const { rpcWithRetry } = await import('../utils/rpcRetry');
+
+      // Preflight: if PDA already exists, bail early to prevent collisions
+      try {
+        const info = await (program as any).provider.connection.getAccountInfo(projectPDA, 'processed');
+        if (info) {
+          alert('A sample project with this derived address already exists. Please try again in a few seconds.');
+          setSeeding(false);
+          return;
+        }
+      } catch {}
+
       await rpcWithRetry(() =>
         (program as any).methods
           .createProject(name, description, github, logoHash, techStack, needs, intent, level, status, roleRequirements)
@@ -94,8 +112,24 @@ export default function ProjectsPage() {
           .rpc()
       );
 
-      await fetchProjects();
-      alert('✅ Seed project created');
+      console.log('✅ Sample project created successfully!');
+      
+      // Manually fetch and add the new project to avoid losing wallet connection
+      try {
+        // Wait a bit for blockchain to propagate
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        // Fetch the newly created project
+        const newProjectAccount = await (program as any).account.project.fetch(projectPDA);
+        
+        // Add it to the projects list
+        setProjects(prev => [...prev, { publicKey: projectPDA, account: newProjectAccount }]);
+        
+        alert('✅ Seed project created successfully!');
+      } catch (fetchError) {
+        console.error('Could not fetch new project, but it was created:', fetchError);
+        alert('✅ Seed project created! Refresh manually to see it (to avoid disconnecting wallet).');
+      }
     } catch (e:any) {
       console.error('Seed error:', e);
       alert('❌ Failed to seed project: ' + (e.message || 'Unknown error'));
@@ -104,14 +138,91 @@ export default function ProjectsPage() {
     }
   };
 
-  const fetchProjects = async () => {
-    if (!program) return;
+  const fetchProjects = async (retryCount = 0) => {
+    if (!program) {
+      console.log('Program not initialized yet, skipping fetch');
+      // If called from seedSample, retry after a short delay
+      if (retryCount < 3) {
+        console.log(`Retrying fetchProjects (attempt ${retryCount + 1}/3)...`);
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        return fetchProjects(retryCount + 1);
+      }
+      return;
+    }
     setLoading(true);
     try {
-      const projectAccounts = await (program as any).account.project.all();
-      setProjects(projectAccounts);
+      // Double-check program is still valid
+      if (!program || !(program as any).account?.project) {
+        console.error('Program or project account not available');
+        if (retryCount < 3) {
+          setLoading(false);
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return fetchProjects(retryCount + 1);
+        }
+        return;
+      }
+      
+      // Fetch all project accounts - manually decode to skip old/incompatible ones
+      let projectAccounts = [];
+      try {
+        const conn = (program as any).provider.connection;
+        const programId = (program as any).programId;
+        const accounts = await conn.getProgramAccounts(programId, { commitment: 'processed' });
+        
+        // Safely decode each account, skipping failures
+        for (const acc of accounts) {
+          try {
+            const decoded = await (program as any).account.project.fetchNullable(acc.pubkey, 'processed');
+            if (decoded) {
+              projectAccounts.push({ publicKey: acc.pubkey, account: decoded });
+            }
+          } catch (e) {
+            // Skip accounts that fail to decode (old schema, corrupted, or not a project)
+            console.log('Skipping account that failed to decode:', acc.pubkey.toString().slice(0, 8));
+            continue;
+          }
+        }
+      } catch (error: any) {
+        console.error('Error fetching projects:', error);
+        setProjects([]);
+        return;
+      }
+      
+      // Filter to only show OPEN projects (hide closed projects from public view)
+      const openProjects = projectAccounts.filter((project: any) => {
+        try {
+          const collabStatus = project.account.acceptingCollaborations;
+          
+          // If missing the field entirely, it's an old project - hide it
+          if (!collabStatus || (collabStatus !== undefined && collabStatus === null)) {
+            console.log(`Hiding old project without acceptingCollaborations:`, project.publicKey.toString().slice(0, 8));
+            return false;
+          }
+          
+          // Check if project is Open (has {open: {}} enum)
+          const isOpen = collabStatus.open !== undefined;
+          
+          if (!isOpen) {
+            console.log(`Hiding closed project:`, project.publicKey.toString().slice(0, 8));
+            return false;
+          }
+          
+          return true; // Show open projects
+        } catch (e) {
+          console.log('Error checking project status, hiding it:', e);
+          return false;
+        }
+      });
+      
+      console.log(`Fetched ${projectAccounts.length} projects, showing ${openProjects.length} open projects`);
+      setProjects(openProjects);
     } catch (error) {
       console.error('Error fetching projects:', error);
+      // Don't show error to user if it's just rate limiting or connection issues
+      if (error instanceof Error && !error.message.includes('429')) {
+        // Only log non-rate-limit errors
+        console.error('Non-rate-limit error:', error);
+      }
     } finally {
       setLoading(false);
     }
@@ -157,12 +268,13 @@ export default function ProjectsPage() {
   }, [projects]);
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-white mb-2">Discover Projects</h1>
-          <p className="text-gray-400">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">Discover Projects</h1>
+          <p className="text-gray-600 text-lg">
             Browse Web3 projects and find collaboration opportunities on Solana
           </p>
         </div>
@@ -170,24 +282,24 @@ export default function ProjectsPage() {
           <button
             onClick={seedSample}
             disabled={seeding}
-            className="bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg border border-gray-700"
+            className="bg-gray-900 hover:bg-gray-800 text-white px-5 py-3 rounded-lg font-semibold transition-colors disabled:opacity-50"
             title="Create a sample project on-chain for testing"
           >
-            {seeding ? 'Seeding...' : '🌱 Seed Sample Project'}
+            {seeding ? 'Seeding...' : 'Seed Sample'}
           </button>
         )}
       </div>
 
       {/* Filters */}
-      <div className="bg-gray-800 rounded-lg p-6 mb-6 space-y-4">
+      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-6 space-y-4">
         {/* Search */}
         <div>
           <input
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="🔍 Search projects by name or description..."
-            className="w-full bg-gray-700 text-white rounded-lg px-4 py-3"
+            placeholder="Search projects by name or description..."
+            className="w-full bg-gray-50 text-gray-900 rounded-lg px-4 py-3 border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
           />
         </div>
 
@@ -195,11 +307,11 @@ export default function ProjectsPage() {
         <div className="flex flex-wrap gap-4">
           {/* Status Filter */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-gray-300 text-sm mb-2">Filter by Status</label>
+            <label className="block text-gray-700 text-sm font-medium mb-2">Filter by Status</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full bg-gray-700 text-white rounded-lg px-4 py-2"
+              className="w-full bg-gray-50 text-gray-900 rounded-lg px-4 py-2 border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
             >
               <option value="all">All Statuses</option>
               {Object.entries(STATUS_BADGES).map(([key, val]) => (
@@ -212,11 +324,11 @@ export default function ProjectsPage() {
 
           {/* Tech Filter */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-gray-300 text-sm mb-2">Filter by Tech</label>
+            <label className="block text-gray-700 text-sm font-medium mb-2">Filter by Tech</label>
             <select
               value={filterTech}
               onChange={(e) => setFilterTech(e.target.value)}
-              className="w-full bg-gray-700 text-white rounded-lg px-4 py-2"
+              className="w-full bg-gray-50 text-gray-900 rounded-lg px-4 py-2 border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
             >
               <option value="all">All Technologies</option>
               {allTechs.map((tech) => (
@@ -230,29 +342,29 @@ export default function ProjectsPage() {
       </div>
 
       {/* Results Count */}
-      <div className="mb-4 text-gray-400">
+      <div className="mb-6 text-gray-600 text-sm font-medium">
         Showing {filteredProjects.length} of {projects.length} projects
       </div>
 
       {/* Projects Grid */}
       {loading ? (
-        <div className="text-center py-12">
-          <div className="text-4xl mb-4">⏳</div>
-          <p className="text-gray-400">Loading projects...</p>
+        <div className="text-center py-16">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-gray-900 mb-4"></div>
+          <p className="text-gray-600 font-medium">Loading projects...</p>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="text-center py-12 bg-gray-800 rounded-lg">
+        <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl shadow-sm">
           <div className="text-6xl mb-4">📂</div>
-          <h3 className="text-xl font-bold text-white mb-2">No projects found</h3>
-          <p className="text-gray-400 mb-6">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">No projects found</h3>
+          <p className="text-gray-600 mb-6">
             {projects.length === 0
               ? 'Be the first to create a project!'
               : 'Try adjusting your filters or search query'}
           </p>
           {publicKey && projects.length === 0 && (
             <Link href="/projects/new">
-              <button className="bg-linear-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-6 py-3 rounded-lg font-semibold">
-                🚀 Create First Project
+              <button className="bg-gray-900 hover:bg-gray-800 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
+                Create First Project
               </button>
             </Link>
           )}
@@ -269,12 +381,12 @@ export default function ProjectsPage() {
               <Link
                 key={project.publicKey.toString()}
                 href={`/projects/${project.publicKey.toString()}`}
-                className="block"
+                className="block group"
               >
-                <div className="bg-gray-800 rounded-lg p-6 hover:bg-gray-750 transition-all cursor-pointer border border-gray-700 hover:border-blue-600 h-full flex flex-col">
-                  {/* Logo */}
-                  <div className="mb-4 flex items-center space-x-3">
-                    <div className="w-16 h-16 rounded-lg bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
+                <div className="bg-white rounded-2xl p-6 hover:shadow-lg transition-all cursor-pointer border border-gray-200 hover:border-gray-900 h-full flex flex-col">
+                  {/* Logo & Title */}
+                  <div className="mb-4 flex items-start gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden shrink-0">
                       {project.account.logoIpfsHash ? (
                         <img
                           src={`https://gateway.pinata.cloud/ipfs/${project.account.logoIpfsHash}`}
@@ -282,48 +394,55 @@ export default function ProjectsPage() {
                           className="w-full h-full object-cover"
                         />
                       ) : (
-                        <span className="text-3xl">📁</span>
+                        <span className="text-2xl">📁</span>
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h3 className="text-xl font-bold text-white mb-2 line-clamp-1">
+                      <h3 className="text-lg font-bold text-gray-900 mb-1 line-clamp-2 group-hover:text-gray-700 transition-colors">
                         {project.account.name}
                       </h3>
-                    </div>
-                  </div>
-
-                  {/* Header */}
-                  <div className="mb-4">
-                    <div className="flex flex-wrap gap-2">
-                      <span className={`text-xs px-2 py-1 rounded ${statusBadge.color} text-white`}>
-                        {statusBadge.label}
-                      </span>
-                      <span className={`text-xs px-2 py-1 rounded ${collabBadge.color} text-white`}>
-                        {collabBadge.label}
-                      </span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full border font-medium ${statusBadge.color}`}>
+                          {statusBadge.label}
+                        </span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-200 font-medium">
+                          {collabBadge.label}
+                        </span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Description */}
-                  <p className="text-gray-300 text-sm mb-4 line-clamp-3 grow">
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-3 grow leading-relaxed">
                     {project.account.description}
                   </p>
 
                   {/* Tech Stack */}
                   {project.account.techStack.length > 0 && (
                     <div className="mb-4">
-                      <div className="flex flex-wrap gap-2">
-                        {project.account.techStack.slice(0, 4).map((tech: any, idx: number) => (
-                          <span
-                            key={idx}
-                            className="text-xs px-2 py-1 rounded bg-blue-900 text-blue-200"
-                          >
-                            {TECH_ICONS[tech.value] || '💻'} {tech.value}
-                          </span>
-                        ))}
-                        {project.account.techStack.length > 4 && (
-                          <span className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300">
-                            +{project.account.techStack.length - 4} more
+                      <div className="flex flex-wrap gap-1.5">
+                        {project.account.techStack.slice(0, 3).map((tech: any, idx: number) => {
+                          // Bright premium colors for tech tags
+                          const colors = [
+                            'bg-purple-500 text-white',
+                            'bg-pink-500 text-white', 
+                            'bg-orange-500 text-white',
+                            'bg-blue-500 text-white',
+                            'bg-red-500 text-white',
+                            'bg-yellow-500 text-gray-900',
+                          ];
+                          return (
+                            <span
+                              key={idx}
+                              className={`text-[10px] px-2 py-1 rounded-lg ${colors[idx % colors.length]} font-semibold`}
+                            >
+                              {tech.value}
+                            </span>
+                          );
+                        })}
+                        {project.account.techStack.length > 3 && (
+                          <span className="text-[10px] px-2 py-1 rounded-lg bg-gray-900 text-white font-semibold">
+                            +{project.account.techStack.length - 3}
                           </span>
                         )}
                       </div>
@@ -331,9 +450,9 @@ export default function ProjectsPage() {
                   )}
 
                   {/* Footer */}
-                  <div className="flex items-center justify-between text-sm text-gray-400 pt-4 border-t border-gray-700">
-                    <span>👥 {project.account.contributorsCount} contributors</span>
-                    <span className="text-blue-400 hover:underline">View Details →</span>
+                  <div className="flex items-center justify-between text-xs pt-4 border-t border-gray-200">
+                    <span className="text-gray-500 font-medium">👥 {project.account.contributorsCount || 1} contributors</span>
+                    <span className="text-gray-900 font-semibold group-hover:underline">View →</span>
                   </div>
                 </div>
               </Link>
@@ -341,6 +460,7 @@ export default function ProjectsPage() {
           })}
         </div>
       )}
+      </div>
     </div>
   );
 }

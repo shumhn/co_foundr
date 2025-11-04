@@ -177,6 +177,52 @@ export default function ProjectDetailPage() {
     }
   };
 
+  const closeProject = async () => {
+    if (!publicKey || !program || !project) return;
+    
+    const confirmed = confirm('Close this project? You will stop receiving collaboration requests.');
+    if (!confirmed) return;
+
+    try {
+      await (program as any).methods
+        .closeProject()
+        .accounts({
+          project: project.publicKey,
+          creator: publicKey,
+        })
+        .rpc();
+
+      alert('✅ Project closed! You are no longer accepting collaboration requests.');
+      await fetchProject(); // Refresh to show updated status
+    } catch (error: any) {
+      console.error('Close project error:', error);
+      alert('❌ Failed to close project: ' + (error.message || 'Unknown error'));
+    }
+  };
+
+  const reopenProject = async () => {
+    if (!publicKey || !program || !project) return;
+    
+    const confirmed = confirm('Reopen this project for collaboration?');
+    if (!confirmed) return;
+
+    try {
+      await (program as any).methods
+        .reopenProject()
+        .accounts({
+          project: project.publicKey,
+          creator: publicKey,
+        })
+        .rpc();
+
+      alert('✅ Project reopened! You are now accepting collaboration requests.');
+      await fetchProject(); // Refresh to show updated status
+    } catch (error: any) {
+      console.error('Reopen project error:', error);
+      alert('❌ Failed to reopen project: ' + (error.message || 'Unknown error'));
+    }
+  };
+
   const sendCollabRequest = async () => {
     if (!publicKey || !program || !project) return;
     if (!hasProfile) {
@@ -460,6 +506,16 @@ export default function ProjectDetailPage() {
                 <span className={`inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadge.color}`}>
                   {statusBadge.label}
                 </span>
+                {/* Collaboration Status Badge */}
+                {project.account.acceptingCollaborations?.open ? (
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-300">
+                    🟢 Open
+                  </span>
+                ) : (
+                  <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-300">
+                    🔴 Closed
+                  </span>
+                )}
                 <span className="inline-block px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
                   {COLLAB_LEVEL[levelKey]}
                 </span>
@@ -480,6 +536,33 @@ export default function ProjectDetailPage() {
           </div>
         </header>
 
+        {/* Closed Project Gate for Non-Owners */}
+        {!isOwner && project.account.acceptingCollaborations?.closed && (
+          <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-red-50 border-2 border-red-200 flex items-center justify-center">
+                <svg className="w-10 h-10 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+              </div>
+              <h2 className={`${premium.className} text-2xl font-bold text-gray-900 mb-3`}>
+                This Project is Closed
+              </h2>
+              <p className="text-gray-600 mb-8 leading-relaxed">
+                The project owner is not currently accepting new collaboration requests. Check back later or explore other open projects.
+              </p>
+              <Link
+                href="/projects"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-white font-semibold rounded-lg transition-colors"
+              >
+                ← Browse Open Projects
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Main Content - Only show if owner OR project is open */}
+        {(isOwner || project.account.acceptingCollaborations?.open) && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2 space-y-6">
@@ -602,6 +685,21 @@ export default function ProjectDetailPage() {
                 >
                   Edit Project
                 </button>
+                {project.account.acceptingCollaborations?.open ? (
+                  <button
+                    onClick={closeProject}
+                    className="w-full px-4 py-2.5 bg-sky-500 hover:bg-sky-600 text-white font-medium rounded-lg text-sm"
+                  >
+                    Close Project
+                  </button>
+                ) : (
+                  <button
+                    onClick={reopenProject}
+                    className="w-full px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white font-medium rounded-lg text-sm"
+                  >
+                    Reopen Project
+                  </button>
+                )}
                 <button
                   onClick={deleteProject}
                   className="w-full px-4 py-2.5 bg-gray-900 hover:bg-gray-800 text-white font-medium rounded-lg text-sm"
@@ -611,6 +709,18 @@ export default function ProjectDetailPage() {
               </div>
             ) : publicKey ? (
               (() => {
+                // Check if project is closed for collaboration
+                const isClosed = project.account.acceptingCollaborations?.closed;
+                
+                if (isClosed) {
+                  return (
+                    <div className="w-full px-4 py-3 bg-red-50 border border-red-200 text-red-700 font-medium rounded-lg text-center text-sm">
+                      🔒 This project is closed
+                      <p className="text-xs text-red-600 mt-1">No longer accepting collaboration requests</p>
+                    </div>
+                  );
+                }
+                
                 const status = existingRequest ? Object.keys(existingRequest.status || {})[0] : null;
                 
                 // Show status message if pending, under review, or accepted
@@ -646,7 +756,7 @@ export default function ProjectDetailPage() {
             )}
           </div>
         </div>
-      </div>
+        )}
 
       {/* Collaboration Request Modal */}
       {showCollabModal && (
@@ -747,6 +857,7 @@ export default function ProjectDetailPage() {
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }

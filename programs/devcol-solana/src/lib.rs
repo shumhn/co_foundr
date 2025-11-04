@@ -18,6 +18,7 @@ pub mod devcol_solana {
         bio: String,
         github_link: String,
         ipfs_metadata_hash: String,
+        contact_info: String,
     ) -> Result<()> {
         require!(username.len() <= 32, ErrorCode::UsernameTooLong);
         require!(display_name.len() <= 64, ErrorCode::DisplayNameTooLong);
@@ -26,6 +27,8 @@ pub mod devcol_solana {
         require!(bio.len() <= 200, ErrorCode::BioTooLong);
         require!(github_link.len() <= 100, ErrorCode::GithubLinkTooLong);
         require!(ipfs_metadata_hash.len() <= 64, ErrorCode::IpfsHashTooLong);
+        require!(contact_info.len() <= 200, ErrorCode::ContactInfoTooLong);
+        // Contact info is optional - can be empty string and added later via update
 
         let user = &mut ctx.accounts.user;
         let clock = Clock::get()?;
@@ -38,6 +41,7 @@ pub mod devcol_solana {
         user.bio = bio;
         user.github_link = github_link;
         user.ipfs_metadata_hash = ipfs_metadata_hash;
+        user.contact_info = contact_info;
         user.reputation = 0;
         user.projects_count = 0;
         user.collabs_count = 0;
@@ -166,6 +170,7 @@ pub struct DeleteSenderRejectedRequest<'info> {
         bio: Option<String>,
         github_link: Option<String>,
         ipfs_metadata_hash: Option<String>,
+        contact_info: Option<String>,
         open_to_collab: Option<bool>,
         profile_visibility: Option<ProfileVisibility>,
     ) -> Result<()> {
@@ -196,6 +201,11 @@ pub struct DeleteSenderRejectedRequest<'info> {
             require!(new_hash.len() <= 64, ErrorCode::IpfsHashTooLong);
             user.ipfs_metadata_hash = new_hash;
         }
+        if let Some(new_contact) = contact_info {
+            require!(new_contact.len() <= 200, ErrorCode::ContactInfoTooLong);
+            // Contact info can be empty - it's optional
+            user.contact_info = new_contact;
+        }
         if let Some(collab) = open_to_collab {
             user.open_to_collab = collab;
         }
@@ -211,24 +221,58 @@ pub struct DeleteSenderRejectedRequest<'info> {
         Ok(())
     }
 
-    /// Delete (deactivate) user profile
-    pub fn delete_user(ctx: Context<DeleteUser>) -> Result<()> {
+    /// Migrate old user account to new schema with contact_info field
+    pub fn migrate_user_account(
+        ctx: Context<MigrateUser>,
+        contact_info: String,
+    ) -> Result<()> {
+        require!(contact_info.len() <= 200, ErrorCode::ContactInfoTooLong);
+        require!(!contact_info.trim().is_empty(), ErrorCode::ContactInfoRequired);
+
+        let user_account = &ctx.accounts.user.to_account_info();
+        let current_size = user_account.data_len();
+        let new_size = 8 + User::INIT_SPACE; // 8 bytes discriminator + User size
+
+        // Only migrate if account is smaller than expected (old schema)
+        if current_size < new_size {
+            // Realloc to new size
+            user_account.realloc(new_size, false)?;
+            
+            // Refund or charge rent difference
+            let rent = Rent::get()?;
+            let new_minimum_balance = rent.minimum_balance(new_size);
+            let current_balance = user_account.lamports();
+            
+            if current_balance < new_minimum_balance {
+                let diff = new_minimum_balance - current_balance;
+                anchor_lang::system_program::transfer(
+                    CpiContext::new(
+                        ctx.accounts.system_program.to_account_info(),
+                        anchor_lang::system_program::Transfer {
+                            from: ctx.accounts.signer.to_account_info(),
+                            to: user_account.clone(),
+                        },
+                    ),
+                    diff,
+                )?;
+            }
+
+            msg!("Account migrated from {} to {} bytes", current_size, new_size);
+        }
+
+        // Set the contact_info field
         let user = &mut ctx.accounts.user;
+        user.contact_info = contact_info;
         
-        // Mark user as inactive by setting open_to_collab to false
-        // and clearing personal information
-        user.open_to_collab = false;
-        user.display_name = String::new();
-        user.role = String::new();
-        user.location = String::new();
-        user.bio = String::new();
-        user.github_link = String::new();
-        user.ipfs_metadata_hash = String::new();
-        
-        // Update last active timestamp
-        user.last_active = Clock::get()?.unix_timestamp;
-        
-        msg!("User profile deleted: {}", user.username);
+        msg!("User account migrated successfully: {}", user.username);
+        Ok(())
+    }
+
+    /// Delete user profile (closes account and returns SOL)
+    pub fn delete_user(_ctx: Context<DeleteUser>) -> Result<()> {
+        // Account will be closed automatically via the 'close' constraint
+        // All lamports will be returned to the signer
+        msg!("User profile deleted and account closed");
         Ok(())
     }
 
@@ -282,6 +326,7 @@ pub struct DeleteSenderRejectedRequest<'info> {
         project.collab_intent = collab_intent;
         project.collaboration_level = collaboration_level;
         project.project_status = project_status;
+        project.accepting_collaborations = CollaborationAcceptance::Open; // Default: open for collaboration
         project.timestamp = clock.unix_timestamp;
         project.last_updated = clock.unix_timestamp;
         project.contributors_count = 1; // Creator is first contributor
@@ -513,6 +558,24 @@ pub struct DeleteSenderRejectedRequest<'info> {
         Ok(())
     }
 
+    /// Close project for collaboration (stop accepting requests)
+    pub fn close_project(ctx: Context<UpdateProject>) -> Result<()> {
+        let project = &mut ctx.accounts.project;
+        project.accepting_collaborations = CollaborationAcceptance::Closed;
+        project.last_updated = Clock::get()?.unix_timestamp;
+        msg!("Project closed for collaboration: {}", project.name);
+        Ok(())
+    }
+
+    /// Reopen project for collaboration (start accepting requests again)
+    pub fn reopen_project(ctx: Context<UpdateProject>) -> Result<()> {
+        let project = &mut ctx.accounts.project;
+        project.accepting_collaborations = CollaborationAcceptance::Open;
+        project.last_updated = Clock::get()?.unix_timestamp;
+        msg!("Project reopened for collaboration: {}", project.name);
+        Ok(())
+    }
+
     /// Update project's role requirements (creator only)
     pub fn update_project_roles(
         ctx: Context<UpdateProjectRoles>,
@@ -573,6 +636,17 @@ pub struct UpdateUser<'info> {
 }
 
 #[derive(Accounts)]
+pub struct MigrateUser<'info> {
+    #[account(mut)]
+    pub user: Account<'info, User>,
+    
+    #[account(mut)]
+    pub signer: Signer<'info>,
+    
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 #[instruction(name: String)]
 pub struct CreateProject<'info> {
     #[account(
@@ -585,10 +659,6 @@ pub struct CreateProject<'info> {
     pub project: Account<'info, Project>,
 
     // Require that the creator already has a User profile
-    #[account(
-        seeds = [b"user", creator.key().as_ref()],
-        bump = user.bump,
-    )]
     pub user: Account<'info, User>,
 
     #[account(mut)]
@@ -666,6 +736,7 @@ pub struct UpdateCollabRequest<'info> {
 pub struct DeleteUser<'info> {
     #[account(
         mut,
+        close = signer,
         seeds = [b"user", signer.key().as_ref()],
         bump = user.bump,
         has_one = wallet
@@ -699,6 +770,8 @@ pub struct User {
     pub github_link: String,                 // 4 + 100 = 104 bytes
     #[max_len(64)]
     pub ipfs_metadata_hash: String,          // 4 + 64 = 68 bytes (link to IPFS for extended data)
+    #[max_len(200)]
+    pub contact_info: String,                // 4 + 200 = 204 bytes (WhatsApp, Discord, meeting link, etc.)
     pub reputation: u32,                     // 4 bytes
     pub projects_count: u32,                 // 4 bytes
     pub collabs_count: u32,                  // 4 bytes
@@ -709,7 +782,7 @@ pub struct User {
     pub profile_visibility: ProfileVisibility, // 1 byte
     pub bump: u8,                            // 1 byte
 }
-// Total: ~656 bytes (well under 4KB!)
+// Total: ~860 bytes (well under 4KB!)
 
 #[account]
 #[derive(InitSpace)]
@@ -734,6 +807,7 @@ pub struct Project {
     pub collab_intent: String,                  // 4 + 300 = 304 bytes
     pub collaboration_level: CollaborationLevel, // 1 byte (enum)
     pub project_status: ProjectStatus,          // 1 byte (enum)
+    pub accepting_collaborations: CollaborationAcceptance, // 1 byte (open/closed)
     pub timestamp: i64,                         // 8 bytes
     pub last_updated: i64,                      // 8 bytes
     pub contributors_count: u16,                // 2 bytes
@@ -815,7 +889,19 @@ pub struct ShortText {
     pub value: String,
 }
 
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, PartialEq, Eq, InitSpace)]
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
+pub enum CollaborationAcceptance {
+    Open,    // Accepting collaboration requests
+    Closed,  // No longer accepting requests
+}
+
+impl Default for CollaborationAcceptance {
+    fn default() -> Self {
+        Self::Open
+    }
+}
+
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, PartialEq, Eq, InitSpace)]
 pub enum ProjectStatus {
     JustStarted,    // 0-25% complete
     InProgress,     // 25-75% complete
@@ -886,6 +972,12 @@ pub enum ErrorCode {
     InvalidRoleCounts,
     #[msg("Needed count too large; maximum is 10")] 
     RoleNeededTooLarge,
+    
+    #[msg("Contact info must be 200 characters or less")]
+    ContactInfoTooLong,
+    
+    #[msg("Contact info is required (WhatsApp, Discord, meeting link, etc.)")]
+    ContactInfoRequired,
     RoleNotFound,
     
     #[msg("Role slot is full (all positions filled)")]

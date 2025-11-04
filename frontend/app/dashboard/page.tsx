@@ -4,40 +4,66 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useDashboardData } from '../hooks/useDashboardData';
-import { StatCard } from '../components/StatCard';
 import { EmptyState } from '../components/EmptyState';
+import { Sora } from 'next/font/google';
+
+const premium = Sora({ subsets: ['latin'], weight: ['400', '500', '600', '700'] });
 
 export default function DashboardPage() {
   const { publicKey } = useWallet();
   const { profile, ownedProjects, applications, receivedRequests, activeCollaborations, stats, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'underReview' | 'accepted' | 'rejected'>('all');
+  const [projectFilter, setProjectFilter] = useState<'all' | 'open' | 'closed'>('all');
 
   // No wallet connected
   if (!publicKey) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <EmptyState
-          icon="🔌"
-          title="Connect Your Wallet"
-          description="Connect your Phantom wallet to view your personalized dashboard"
-          actionLabel="Connect Wallet"
-          onAction={() => {}}
-        />
+      <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <EmptyState
+            icon="🔌"
+            title="Connect Your Wallet"
+            description="Connect your Phantom wallet to view your personalized dashboard"
+            actionLabel="Connect Wallet"
+            onAction={() => {}}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+        <div className="max-w-7xl mx-auto px-4 py-8">
+          <div className="mb-8">
+            <div className="h-10 bg-gray-200 rounded-lg w-48 mb-2 animate-pulse"></div>
+            <div className="h-6 bg-gray-200 rounded-lg w-64 animate-pulse"></div>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="bg-white rounded-2xl h-32 animate-pulse"></div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
 
   // No profile yet
-  if (!loading && !profile) {
+  if (!profile) {
     return (
-      <div className="max-w-7xl mx-auto px-4 py-12">
-        <EmptyState
-          icon="👤"
-          title="Create Your Profile"
-          description="Get started by creating your developer profile to join projects and collaborate"
-          actionLabel="Create Profile"
-          actionHref="/profile"
-        />
+      <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+        <div className="max-w-7xl mx-auto px-4 py-12">
+          <EmptyState
+            icon="👤"
+            title="Create Your Profile"
+            description="Get started by creating your developer profile to join projects and collaborate"
+            actionLabel="Create Profile"
+            actionHref="/profile"
+          />
+        </div>
       </div>
     );
   }
@@ -58,271 +84,368 @@ export default function DashboardPage() {
     rejected: applications.filter((a: any) => Object.keys(a.account.status)[0] === 'rejected').length,
   };
 
+  // Filter projects
+  const filteredProjects = projectFilter === 'all' 
+    ? ownedProjects 
+    : ownedProjects.filter((p: any) => {
+        const isOpen = p.account.acceptingCollaborations?.open;
+        return projectFilter === 'open' ? isOpen : !isOpen;
+      });
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-white mb-2">Dashboard</h1>
-        <p className="text-gray-400">Welcome back, {profile?.username || 'Developer'}!</p>
-      </div>
-
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-        <StatCard
-          title="Projects Created"
-          value={loading ? '...' : stats.projectsCreated}
-          icon="📂"
-          color="blue"
-          href={stats.projectsCreated > 0 ? '#my-projects' : undefined}
-          loading={loading}
-        />
-        <StatCard
-          title="Pending Reviews"
-          value={loading ? '...' : stats.pendingReviews}
-          icon="⏳"
-          color="yellow"
-          subtitle={stats.pendingReviews > 0 ? 'Requires attention' : 'All caught up'}
-          href={stats.pendingReviews > 0 ? '#pending-requests' : undefined}
-          loading={loading}
-        />
-        <StatCard
-          title="Active Collaborations"
-          value={loading ? '...' : stats.activeCollabs}
-          icon="🤝"
-          color="green"
-          href={stats.activeCollabs > 0 ? '#active-collabs' : undefined}
-          loading={loading}
-        />
-        <StatCard
-          title="Total Applications"
-          value={loading ? '...' : stats.totalApplications}
-          icon="📤"
-          color="purple"
-          href={stats.totalApplications > 0 ? '#my-applications' : undefined}
-          loading={loading}
-        />
-      </div>
-
-      {/* Error State */}
-      {error && (
-        <div className="bg-red-900 border border-red-600 rounded-lg p-4 mb-8">
-          <p className="text-red-200">{error}</p>
+    <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-4xl font-bold text-gray-900 tracking-tight mb-2">Dashboard</h1>
+          <p className="text-gray-600 text-lg">Welcome back, <span className="text-[#00D4AA] font-semibold">@{profile?.username || 'Developer'}</span>!</p>
         </div>
-      )}
 
-      {/* Action Items - Urgent */}
-      {!loading && stats.pendingReviews > 0 && (
-        <div id="pending-requests" className="bg-red-900 border border-red-600 rounded-lg p-6 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-xl font-bold text-white flex items-center gap-2">
-                🔴 Urgent: {stats.pendingReviews} Request{stats.pendingReviews !== 1 ? 's' : ''} Awaiting Review
-              </h2>
-              <p className="text-red-200 text-sm">Review and respond to collaboration requests</p>
+        {/* Stats Grid - Premium Bright Colors */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          {/* Projects Created */}
+          <Link
+            href={stats.projectsCreated > 0 ? '#my-projects' : '/projects/new'}
+            className="group bg-gradient-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-3 bg-white/20 rounded-xl">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+              </div>
+              <span className="text-3xl font-bold text-white">{loading ? '...' : stats.projectsCreated}</span>
             </div>
-            <Link
-              href="/requests"
-              className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg font-semibold transition-colors"
-            >
-              Review Now
-            </Link>
-          </div>
-        </div>
-      )}
+            <h3 className="text-white/90 text-sm font-semibold mb-1">Projects Created</h3>
+            <p className="text-white/70 text-xs">Your active projects</p>
+          </Link>
 
-      {/* My Projects Section */}
-      {!loading && ownedProjects.length > 0 && (
-        <section id="my-projects" className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">My Projects</h2>
-            <Link href="/projects/new" className="text-blue-400 hover:text-blue-300 text-sm font-medium">
-              + Create New
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {ownedProjects.slice(0, 6).map((project: any) => {
-              const pendingForProject = receivedRequests.filter(
-                (r: any) => r.account.project.toString() === project.publicKey.toString() && 
-                Object.keys(r.account.status)[0] === 'pending'
-              ).length;
-
-              return (
-                <Link
-                  key={project.publicKey.toString()}
-                  href={`/projects/${project.publicKey.toString()}`}
-                  className="bg-gray-800 border border-gray-700 rounded-lg p-6 hover:border-blue-500 transition-all group"
-                >
-                  <div className="flex items-start justify-between mb-3">
-                    <h3 className="text-lg font-semibold text-white group-hover:text-blue-400 transition-colors">
-                      {project.account.name}
-                    </h3>
-                    {pendingForProject > 0 && (
-                      <span className="bg-red-600 text-white text-xs px-2 py-1 rounded-full">
-                        {pendingForProject}
-                      </span>
-                    )}
-                  </div>
-                  <p className="text-gray-400 text-sm mb-4 line-clamp-2">
-                    {project.account.description}
-                  </p>
-                  <div className="flex items-center justify-between text-xs text-gray-500">
-                    <span>{project.account.requiredRoles?.length || 0} roles</span>
-                    <span className="text-blue-400 group-hover:text-blue-300">View →</span>
-                  </div>
-                </Link>
-              );
-            })}
-          </div>
-          {ownedProjects.length > 6 && (
-            <div className="text-center mt-6">
-              <Link href="/projects" className="text-blue-400 hover:text-blue-300 text-sm font-medium">
-                View all {ownedProjects.length} projects →
-              </Link>
+          {/* Pending Reviews */}
+          <Link
+            href={stats.pendingReviews > 0 ? '#pending-requests' : '/requests'}
+            className="group bg-gradient-to-br from-sky-400 to-sky-500 hover:from-sky-500 hover:to-sky-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-3 bg-white/20 rounded-xl">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-3xl font-bold text-white">{loading ? '...' : stats.pendingReviews}</span>
             </div>
-          )}
-        </section>
-      )}
+            <h3 className="text-white/90 text-sm font-semibold mb-1">Pending Reviews</h3>
+            <p className="text-white/70 text-xs">{stats.pendingReviews > 0 ? 'Requires attention' : 'All caught up'}</p>
+          </Link>
 
-      {/* My Applications Section */}
-      <section id="my-applications" className="mb-12">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">My Applications</h2>
-          <Link href="/projects" className="text-blue-400 hover:text-blue-300 text-sm font-medium">
-            Browse Projects →
+          {/* Active Collaborations */}
+          <Link
+            href={stats.activeCollabs > 0 ? '#active-collabs' : '/projects'}
+            className="group bg-gradient-to-br from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-3 bg-white/20 rounded-xl">
+                <svg className="w-6 h-6 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+              </div>
+              <span className="text-3xl font-bold text-white">{loading ? '...' : stats.activeCollabs}</span>
+            </div>
+            <h3 className="text-white/90 text-sm font-semibold mb-1">Active Collaborations</h3>
+            <p className="text-white/70 text-xs">Projects you're working on</p>
+          </Link>
+
+          {/* Total Applications */}
+          <Link
+            href={stats.totalApplications > 0 ? '#my-applications' : '/projects'}
+            className="group bg-white border-2 border-gray-200 hover:border-gray-400 hover:shadow-lg rounded-2xl shadow-sm transition-all p-6"
+          >
+            <div className="flex items-start justify-between mb-3">
+              <div className="p-3 bg-gray-100 rounded-xl">
+                <svg className="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <span className="text-3xl font-bold text-gray-900">{loading ? '...' : stats.totalApplications}</span>
+            </div>
+            <h3 className="text-gray-700 text-sm font-semibold mb-1">Total Applications</h3>
+            <p className="text-gray-600 text-xs">Requests you've sent</p>
           </Link>
         </div>
 
-        {applications.length === 0 ? (
-          <EmptyState
-            icon="📤"
-            title="No Applications Yet"
-            description="Browse projects and apply for roles that match your skills"
-            actionLabel="Browse Projects"
-            actionHref="/projects"
-          />
-        ) : (
-          <>
-            {/* Status Tabs */}
+        {/* Error State */}
+        {error && (
+          <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-8">
+            <p className="text-red-600 font-medium">{error}</p>
+          </div>
+        )}
+
+        {/* Urgent Action Items */}
+        {!loading && stats.pendingReviews > 0 && (
+          <div id="pending-requests" className="bg-gradient-to-r from-red-50 to-orange-50 border-l-4 border-red-500 rounded-2xl p-6 mb-8">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2 mb-1">
+                  <span className="text-red-500">●</span> Urgent: {stats.pendingReviews} Request{stats.pendingReviews !== 1 ? 's' : ''} Awaiting Review
+                </h2>
+                <p className="text-gray-600 text-sm">Review and respond to collaboration requests for your projects</p>
+              </div>
+              <Link
+                href="/requests"
+                className="bg-red-500 hover:bg-red-600 text-white px-6 py-3 rounded-lg font-semibold transition-colors shrink-0"
+              >
+                Review Now →
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* My Projects Section */}
+        {!loading && ownedProjects.length > 0 && (
+          <section id="my-projects" className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">My Projects</h2>
+                <p className="text-gray-600 text-sm mt-1">Manage and track your projects</p>
+              </div>
+              <div className="flex items-center gap-3">
+                {/* Filter Tabs */}
+                <div className="flex gap-2 bg-white border border-gray-200 rounded-lg p-1">
+                  {([
+                    { key: 'all', label: 'All', count: ownedProjects.length },
+                    { key: 'open', label: 'Open', count: ownedProjects.filter((p: any) => p.account.acceptingCollaborations?.open).length },
+                    { key: 'closed', label: 'Closed', count: ownedProjects.filter((p: any) => !p.account.acceptingCollaborations?.open).length },
+                  ] as const).map(({ key, label, count }) => (
+                    <button
+                      key={key}
+                      onClick={() => setProjectFilter(key)}
+                      className={`px-4 py-2 rounded-md text-sm font-semibold transition-colors ${
+                        projectFilter === key
+                          ? 'bg-gray-900 text-white'
+                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                      }`}
+                    >
+                      {label} <span className="text-xs ml-1">({count})</span>
+                    </button>
+                  ))}
+                </div>
+                <Link
+                  href="/projects/new"
+                  className="bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                >
+                  + New Project
+                </Link>
+              </div>
+            </div>
+
+            {filteredProjects.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+                <p className="text-gray-600 mb-4">No {projectFilter} projects found</p>
+                {projectFilter !== 'all' && (
+                  <button
+                    onClick={() => setProjectFilter('all')}
+                    className="text-[#00D4AA] hover:underline font-semibold"
+                  >
+                    View all projects
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredProjects.map((project: any) => {
+                  const isOpen = project.account.acceptingCollaborations?.open;
+                  return (
+                    <Link
+                      key={project.publicKey.toString()}
+                      href={`/projects/${project.publicKey.toString()}`}
+                      className="group bg-white border border-gray-200 hover:border-gray-900 hover:shadow-lg transition-all rounded-2xl p-6"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <h3 className="text-lg font-bold text-gray-900 group-hover:text-gray-700 line-clamp-1">
+                          {project.account.name}
+                        </h3>
+                        <span className={`text-xs px-2.5 py-1 rounded-full font-semibold shrink-0 ${
+                          isOpen
+                            ? 'bg-green-100 text-green-700'
+                            : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          {isOpen ? 'Open' : 'Closed'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                        {project.account.description}
+                      </p>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-gray-500">
+                          {new Date(project.account.timestamp.toNumber() * 1000).toLocaleDateString()}
+                        </span>
+                        <span className="text-[#00D4AA] font-semibold group-hover:underline">
+                          View details →
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* My Applications Section */}
+        {!loading && applications.length > 0 && (
+          <section id="my-applications" className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">My Applications</h2>
+                <p className="text-gray-600 text-sm mt-1">Track your collaboration requests</p>
+              </div>
+              <Link
+                href="/requests"
+                className="text-[#00D4AA] hover:underline font-semibold text-sm"
+              >
+                View All →
+              </Link>
+            </div>
+
+            {/* Status Filter Tabs */}
             <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
-              {[
-                { key: 'all' as const, label: 'All' },
-                { key: 'pending' as const, label: 'Pending' },
-                { key: 'underReview' as const, label: 'Under Review' },
-                { key: 'accepted' as const, label: 'Accepted' },
-                { key: 'rejected' as const, label: 'Rejected' },
-              ].map(({ key, label }) => (
+              {([
+                { key: 'all', label: 'All', color: 'gray' },
+                { key: 'pending', label: 'Pending', color: 'yellow' },
+                { key: 'underReview', label: 'Under Review', color: 'blue' },
+                { key: 'accepted', label: 'Accepted', color: 'green' },
+                { key: 'rejected', label: 'Rejected', color: 'red' },
+              ] as const).map(({ key, label, color }) => (
                 <button
                   key={key}
                   onClick={() => setActiveTab(key)}
-                  className={`px-4 py-2 rounded-lg font-medium text-sm whitespace-nowrap transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-semibold transition-colors whitespace-nowrap ${
                     activeTab === key
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-900'
                   }`}
                 >
-                  {label} {applicationCounts[key] > 0 && `(${applicationCounts[key]})`}
+                  {label} <span className="text-xs ml-1">({applicationCounts[key]})</span>
                 </button>
               ))}
             </div>
 
-            {/* Applications List */}
-            <div className="space-y-4">
-              {filteredApplications.length === 0 ? (
-                <div className="text-center py-12 text-gray-400">
-                  No {activeTab !== 'all' ? activeTab : ''} applications
-                </div>
-              ) : (
-                filteredApplications.map((app: any) => {
+            {filteredApplications.length === 0 ? (
+              <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+                <p className="text-gray-600 mb-4">No {activeTab} applications found</p>
+                {activeTab !== 'all' && (
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className="text-[#00D4AA] hover:underline font-semibold"
+                  >
+                    View all applications
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-4">
+                {filteredApplications.slice(0, 5).map((app: any) => {
                   const status = Object.keys(app.account.status)[0];
-                  const statusColor = {
-                    pending: 'bg-yellow-900 border-yellow-600 text-yellow-200',
-                    underReview: 'bg-blue-900 border-blue-600 text-blue-200',
-                    accepted: 'bg-green-900 border-green-600 text-green-200',
-                    rejected: 'bg-red-900 border-red-600 text-red-200',
-                  }[status] || 'bg-gray-800 border-gray-700 text-gray-300';
-
-                  const roleKey = app.account.desiredRole ? Object.keys(app.account.desiredRole)[0] : '';
-                  const rolePretty = roleKey ? roleKey.replace(/^[a-z]/, (c: string) => c.toUpperCase()) : 'Role';
+                  const statusColors: Record<string, string> = {
+                    pending: 'bg-yellow-100 text-yellow-700',
+                    underReview: 'bg-blue-100 text-blue-700',
+                    accepted: 'bg-green-100 text-green-700',
+                    rejected: 'bg-red-100 text-red-700',
+                  };
 
                   return (
                     <Link
                       key={app.publicKey.toString()}
                       href={`/requests/${app.publicKey.toString()}`}
-                      className={`block border rounded-lg p-4 hover:shadow-lg transition-all ${statusColor}`}
+                      className="group bg-white border border-gray-200 hover:border-gray-900 hover:shadow-md transition-all rounded-xl p-4 flex items-center justify-between"
                     >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <span className="font-semibold">{rolePretty}</span>
-                            <span className="text-xs opacity-75">on Project</span>
-                            <span className="text-xs font-mono opacity-75">
-                              {app.account.project.toString().slice(0, 4)}...{app.account.project.toString().slice(-4)}
-                            </span>
-                          </div>
-                          <p className="text-sm opacity-90">
-                            {status === 'pending' && '⏳ Waiting for review'}
-                            {status === 'underReview' && '🔍 Under review by project owner'}
-                            {status === 'accepted' && '✅ Accepted! Ready to collaborate'}
-                            {status === 'rejected' && '❌ Not selected this time'}
+                      <div className="flex-1 min-w-0 mr-4">
+                        <div className="flex items-center gap-2 mb-1">
+                          <p className="text-sm font-semibold text-gray-900">
+                            Application to Project
                           </p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${statusColors[status]}`}>
+                            {status}
+                          </span>
                         </div>
-                        <div className="text-xs opacity-75">
-                          {new Date(app.account.timestamp * 1000).toLocaleDateString()}
-                        </div>
+                        <p className="text-xs text-gray-600 line-clamp-1">
+                          {app.account.message.slice(0, 100)}...
+                        </p>
                       </div>
+                      <span className="text-[#00D4AA] font-semibold text-sm group-hover:underline shrink-0">
+                        View →
+                      </span>
                     </Link>
                   );
-                })
-              )}
-            </div>
-          </>
-        )}
-      </section>
-
-      {/* Active Collaborations Section */}
-      {!loading && activeCollaborations.length > 0 && (
-        <section id="active-collabs" className="mb-12">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-white">Active Collaborations</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {activeCollaborations.map((project: any) => (
-              <div
-                key={project.publicKey.toString()}
-                className="bg-green-900 border border-green-600 rounded-lg p-6"
-              >
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {project.account.name}
-                </h3>
-                <p className="text-green-200 text-sm mb-4 line-clamp-2">
-                  {project.account.description}
-                </p>
-                <Link
-                  href={`/projects/${project.publicKey.toString()}`}
-                  className="inline-block bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
-                >
-                  Open Project →
-                </Link>
+                })}
+                {filteredApplications.length > 5 && (
+                  <Link
+                    href="/requests"
+                    className="block text-center text-[#00D4AA] hover:underline font-semibold text-sm py-3"
+                  >
+                    View all {filteredApplications.length} applications →
+                  </Link>
+                )}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
+            )}
+          </section>
+        )}
 
-      {/* Welcome State - No Activity Yet */}
-      {!loading && ownedProjects.length === 0 && applications.length === 0 && (
-        <div className="mt-12">
-          <EmptyState
-            icon="🚀"
-            title="Welcome to Cofounder!"
-            description="Start your Web3 developer collaboration journey by creating a project or joining existing ones"
-            actionLabel="Create a Project"
-            actionHref="/projects/new"
-            secondaryActionLabel="Browse Projects"
-            secondaryActionHref="/projects"
-          />
-        </div>
-      )}
+        {/* Active Collaborations */}
+        {!loading && activeCollaborations.length > 0 && (
+          <section id="active-collabs" className="mb-12">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-gray-900">Active Collaborations</h2>
+                <p className="text-gray-600 text-sm mt-1">Projects you're actively contributing to</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {activeCollaborations.map((project: any) => (
+                <Link
+                  key={project.publicKey.toString()}
+                  href={`/projects/${project.publicKey.toString()}`}
+                  className="group bg-gradient-to-br from-green-50 to-teal-50 border border-green-200 hover:border-green-400 hover:shadow-lg transition-all rounded-2xl p-6"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <h3 className="text-lg font-bold text-gray-900 group-hover:text-gray-700 line-clamp-1">
+                      {project.account.name}
+                    </h3>
+                    <span className="text-xs px-2.5 py-1 rounded-full bg-green-500 text-white font-semibold shrink-0">
+                      Active
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600 line-clamp-2 mb-4 leading-relaxed">
+                    {project.account.description}
+                  </p>
+                  <span className="text-[#00D4AA] font-semibold text-sm group-hover:underline">
+                    Open project →
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        )}
+
+        {/* Empty State - No Projects or Applications */}
+        {!loading && ownedProjects.length === 0 && applications.length === 0 && (
+          <div className="bg-white border border-gray-200 rounded-2xl p-12 text-center">
+            <div className="max-w-md mx-auto">
+              <div className="text-6xl mb-4">📂</div>
+              <h3 className="text-2xl font-bold text-gray-900 mb-2">Get Started!</h3>
+              <p className="text-gray-600 mb-6">
+                Browse projects and apply for roles that match your skills
+              </p>
+              <Link
+                href="/projects"
+                className="inline-block bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 px-8 py-3 rounded-lg font-bold transition-colors"
+              >
+                Browse Projects →
+              </Link>
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
