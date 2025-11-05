@@ -33,13 +33,13 @@ export default function CollabRequests() {
       setRequests(myRequests);
       
       // Fetch user profiles for all senders
-      const uniqueSenders = [...new Set(myRequests.map(req => req.account.from.toString()))];
+      const uniqueSenders = [...new Set(myRequests.map((req: any) => req.account.from.toString()))];
       const profiles = new Map();
       
       for (const senderWallet of uniqueSenders) {
         try {
           const [userPda] = await PublicKey.findProgramAddress(
-            [Buffer.from('user'), new PublicKey(senderWallet).toBuffer()],
+            [Buffer.from('user'), new PublicKey(senderWallet)],
             (program as any).programId
           );
           const profile = await (program as any).account.user.fetchNullable(userPda);
@@ -194,7 +194,8 @@ export default function CollabRequests() {
                 </div>
               )}
             </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
