@@ -122,8 +122,8 @@ export default function Home() {
                 Devnet
               </span>
             </div>
-            <h1 className={`${display.className} text-6xl md:text-7xl font-black mb-4 leading-[0.95] uppercase tracking-tight`} aria-label="Build the next killer project">
-              <span className="text-(--text-primary) block animate-reveal-up" style={{ ['--delay' as any]: '0ms' }}>BUILD THE NEXT</span>
+            <h1 className={`${display.className} text-6xl md:text-7xl font-black mb-6 leading-[0.95] uppercase tracking-wide`} aria-label="Build the next killer project">
+              <span className="text-(--text-primary) block animate-reveal-up mb-4" style={{ ['--delay' as any]: '0ms' }}>BUILD THE NEXT</span>
               <span className="block animate-reveal-up" style={{ ['--delay' as any]: '200ms' }}>
                 <span className="headline-shimmer">KILLER PROJECT</span>
               </span>
