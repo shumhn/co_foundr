@@ -26,6 +26,18 @@ export function useNotifications() {
     }
   };
 
+  // Helper to mark an outgoing request's response as notified (applicant side)
+  const markResponseNotified = (reqId: string) => {
+    if (typeof window === 'undefined' || !publicKey) return;
+    try {
+      const key = `notifiedRequests_${publicKey.toBase58()}`;
+      const stored = localStorage.getItem(key);
+      const notified = stored ? new Set(JSON.parse(stored)) : new Set();
+      notified.add(reqId);
+      localStorage.setItem(key, JSON.stringify(Array.from(notified)));
+    } catch {}
+  };
+
   // Helper to mark an incoming request as notified
   const markAsNotified = (reqId: string) => {
     if (typeof window === 'undefined' || !publicKey) return;
@@ -64,10 +76,14 @@ export function useNotifications() {
           if (prevStatus && prevStatus !== status) {
             if (status === 'underReview') {
               showToast('info', `🔍 Under review for ${rolePretty} on project ${projectShort}`, 6000);
+              // Mark response as notified so navbar badge clears
+              markResponseNotified(key);
             } else if (status === 'accepted') {
               showToast('success', `🎉 Accepted for ${rolePretty} on project ${projectShort}`, 8000);
+              markResponseNotified(key);
             } else if (status === 'rejected') {
               showToast('error', `❌ Rejected for ${rolePretty} on project ${projectShort}`, 8000);
+              markResponseNotified(key);
             }
           }
 

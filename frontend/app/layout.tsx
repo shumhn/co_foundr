@@ -7,6 +7,7 @@ import Sidebar from './components/Sidebar';
 import RequestStatusMonitor from './components/RequestStatusMonitor';
 import ReceiverNotificationMonitor from './components/ReceiverNotificationMonitor';
 import { ThemeProvider } from './components/ThemeProvider';
+import { NotificationProvider } from './components/NotificationProvider';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,6 +39,8 @@ export default function RootLayout({
             {/* Temporarily disabled to avoid rate limiting */}
             {/* <RequestStatusMonitor /> */}
             {/* <ReceiverNotificationMonitor /> */}
+            {/* Lightweight notifications using filtered queries */}
+            <NotificationProvider />
             <Sidebar />
             <div className="ml-64">
               <Navbar />
