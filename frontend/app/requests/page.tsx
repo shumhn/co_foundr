@@ -163,25 +163,51 @@ function RequestsPageContent() {
     if (!program || !publicKey) return;
     setLoading(true);
     try {
-      // Some legacy or corrupted accounts on devnet can break decode with RangeError.
-      // Walk program accounts and decode each safely, skipping failures.
-      const conn = (program as any).provider.connection;
-      const programId = (program as any).programId;
-      const accs = await conn.getProgramAccounts(programId, { commitment: 'processed' });
-      const decoded: any[] = [];
-      for (const a of accs) {
-        try {
-          const acct = await (program as any).account.collaborationRequest.fetchNullable(a.pubkey, 'processed');
-          if (acct) {
-            decoded.push({ publicKey: a.pubkey, account: acct });
-          }
-        } catch (e) {
-          // Skip accounts that are not CollaborationRequest or fail to decode
-          continue;
-        }
+      // Check cache first
+      const { getCache, setCache } = await import('../utils/cache');
+      const { rpcWithRetry } = await import('../utils/rpcRetry');
+      
+      const cachedRequests = getCache<any[]>('collab_requests');
+      if (cachedRequests) {
+        const decoded = cachedRequests.map((r: any) => ({ publicKey: new PublicKey(r.pubkey), account: r.account }));
+        // Apply filters immediately
+        const rec = decoded.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());
+        const snt = decoded.filter((a: any) => a.account.from?.toString?.() === publicKey.toString());
+        const sentWithReplies = decoded.filter((a: any) => {
+          const isSender = a.account.from?.toString?.() === publicKey.toString();
+          const status = Object.keys(a.account.status || {})[0];
+          const isAccepted = status === 'accepted';
+          const ownerMsg = a.account.owner_message || a.account.ownerMessage || '';
+          return isSender && isAccepted && ownerMsg.trim().length > 0;
+        });
+        const allReceived = [...rec, ...sentWithReplies];
+        const uniqueReceived = allReceived.filter((item, index, self) =>
+          index === self.findIndex((t) => t.publicKey.toString() === item.publicKey.toString())
+        );
+        setReceived(uniqueReceived);
+        setSent(snt);
+        setLoading(false);
       }
+
+      // Fetch with efficient method using memcmp filters
+      const [receivedReqs, sentReqs] = await Promise.all([
+        rpcWithRetry(() => (program as any).account.collaborationRequest.all([
+          { memcmp: { offset: 8 + 32, bytes: publicKey.toBase58() } } // to = publicKey
+        ])).catch(() => [] as any[]),
+        rpcWithRetry(() => (program as any).account.collaborationRequest.all([
+          { memcmp: { offset: 8, bytes: publicKey.toBase58() } } // from = publicKey
+        ])).catch(() => [] as any[])
+      ]) as [any[], any[]];
+      
+      const decoded: any[] = [...receivedReqs, ...sentReqs];
       // Sort newest first
       decoded.sort((x: any, y: any) => (y.account.timestamp || 0) - (x.account.timestamp || 0));
+      
+      // Cache the results
+      try {
+        const toCache = decoded.map((r: any) => ({ pubkey: r.publicKey.toString(), account: r.account }));
+        setCache('collab_requests', toCache, 30_000); // 30 second cache
+      } catch {}
       
       // Received: requests TO you (as project owner)
       const rec = decoded.filter((a: any) => a.account.to?.toString?.() === publicKey.toString());

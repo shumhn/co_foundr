@@ -148,7 +148,7 @@ export default function Home() {
         {/* Featured Projects */}
         <section className="mb-16">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-(--text-primary) uppercase tracking-tight">Featured Projects</h2>
+            <h2 className={`${premium.className} text-3xl font-bold text-(--text-primary) uppercase tracking-tight`}>Featured Projects</h2>
             <p className="text-(--text-muted) text-sm mt-1">Exceptional work from the community</p>
             <Link href="/projects" className="inline-flex items-center gap-1 text-sm text-(--text-primary) hover:text-[#00D4AA] font-semibold transition-colors uppercase tracking-wide mt-2">
               View all
@@ -212,7 +212,7 @@ export default function Home() {
         {/* Founders Spotlight */}
         <section className="mb-16">
           <div className="text-center mb-8">
-            <h2 className="text-3xl font-bold text-(--text-primary) uppercase tracking-tight">Founders</h2>
+            <h2 className={`${premium.className} text-3xl font-bold text-(--text-primary) uppercase tracking-tight`}>Founders</h2>
             <p className="text-(--text-muted) text-sm mt-1">The builders behind the projects</p>
             <Link href="/founders" className="inline-flex items-center gap-1 text-sm text-(--text-primary) hover:text-[#00D4AA] font-semibold transition-colors uppercase tracking-wide mt-2">
               View all

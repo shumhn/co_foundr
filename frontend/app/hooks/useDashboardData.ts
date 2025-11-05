@@ -50,6 +50,20 @@ export function useDashboardData() {
       setData(prev => ({ ...prev, loading: true, error: null }));
 
       try {
+        // Import cache and retry utilities
+        const { getCache, setCache } = await import('../utils/cache');
+        const { rpcWithRetry } = await import('../utils/rpcRetry');
+        
+        // Check cache first for instant display
+        const cachedDashboard = getCache<any>('dashboard_data');
+        if (cachedDashboard) {
+          setData({
+            ...cachedDashboard,
+            loading: false,
+            error: null,
+          });
+        }
+        
         // Fetch user profile - check both PDA and legacy address
         const [userPda] = getUserPDA(publicKey);
         let profile = null;
@@ -67,21 +81,21 @@ export function useDashboardData() {
           }
         }
 
-        // Parallel fetch: projects, sent requests, received requests
+        // Parallel fetch with retry: projects, sent requests, received requests
         let allProjects: any[] = [];
         let sentRequests: any[] = [];
         let receivedRequests: any[] = [];
         
         try {
           [allProjects, sentRequests, receivedRequests] = await Promise.all([
-            (program as any).account.project.all().catch(() => []),
-            (program as any).account.collaborationRequest.all([
+            rpcWithRetry(() => (program as any).account.project.all()).catch(() => []),
+            rpcWithRetry(() => (program as any).account.collaborationRequest.all([
               { memcmp: { offset: 8, bytes: publicKey.toBase58() } }, // from = publicKey
-            ]).catch(() => []),
-            (program as any).account.collaborationRequest.all([
+            ])).catch(() => []),
+            rpcWithRetry(() => (program as any).account.collaborationRequest.all([
               { memcmp: { offset: 8 + 32, bytes: publicKey.toBase58() } }, // to = publicKey
-            ]).catch(() => []),
-          ]);
+            ])).catch(() => []),
+          ]) as [any[], any[], any[]];
         } catch (err) {
           console.error('Error fetching dashboard data:', err);
           // Continue with empty arrays
@@ -108,7 +122,7 @@ export function useDashboardData() {
           (r: any) => Object.keys(r.account.status)[0] === 'pending'
         ).length;
 
-        setData({
+        const newData = {
           profile,
           ownedProjects,
           applications: sentRequests,
@@ -122,7 +136,15 @@ export function useDashboardData() {
           },
           loading: false,
           error: null,
-        });
+        };
+        
+        // Cache dashboard data for faster subsequent loads
+        try {
+          const { setCache } = await import('../utils/cache');
+          setCache('dashboard_data', newData, 30_000); // 30 second cache
+        } catch {}
+
+        setData(newData);
       } catch (e) {
         console.error('Dashboard data fetch error:', e);
         setData(prev => ({
@@ -135,9 +157,10 @@ export function useDashboardData() {
 
     fetchDashboardData();
 
-    // Refresh every 45s
-    const interval = setInterval(fetchDashboardData, 45000);
-    return () => clearInterval(interval);
+    // Optional: Refresh every 2 minutes (less aggressive with caching)
+    // Removed auto-refresh to reduce blockchain API calls - user can manually refresh page
+    // const interval = setInterval(fetchDashboardData, 120000);
+    // return () => clearInterval(interval);
   }, [program, publicKey]);
 
   return data;

@@ -144,7 +144,6 @@ export default function ProjectsPage() {
   const fetchProjects = async (retryCount = 0) => {
     if (!program) {
       console.log('Program not initialized yet, skipping fetch');
-      // If called from seedSample, retry after a short delay
       if (retryCount < 3) {
         console.log(`Retrying fetchProjects (attempt ${retryCount + 1}/3)...`);
         await new Promise(resolve => setTimeout(resolve, 1000));
@@ -154,44 +153,33 @@ export default function ProjectsPage() {
     }
     setLoading(true);
     try {
-      // Double-check program is still valid
-      if (!program || !(program as any).account?.project) {
-        console.error('Program or project account not available');
-        if (retryCount < 3) {
-          setLoading(false);
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          return fetchProjects(retryCount + 1);
-        }
-        return;
+      // Check cache first for instant paint
+      const { getCache, setCache } = await import('../utils/cache');
+      const cached = getCache<any[]>('projects_list');
+      if (cached) {
+        const restored = cached.map((p: any) => ({ publicKey: new PublicKey(p.pubkey), account: p.account }));
+        setProjects(restored);
+        setLoading(false);
       }
-      
-      // Fetch all project accounts - manually decode to skip old/incompatible ones
-      let projectAccounts = [];
+
+      // Fetch with efficient method and retry
+      const { rpcWithRetry } = await import('../utils/rpcRetry');
+      let projectAccounts: any[] = [];
       try {
-        const conn = (program as any).provider.connection;
-        const programId = (program as any).programId;
-        const accounts = await conn.getProgramAccounts(programId, { commitment: 'processed' });
-        
-        // Safely decode each account, skipping failures
-        for (const acc of accounts) {
-          try {
-            const decoded = await (program as any).account.project.fetchNullable(acc.pubkey, 'processed');
-            if (decoded) {
-              projectAccounts.push({ publicKey: acc.pubkey, account: decoded });
-            }
-          } catch (e) {
-            // Skip accounts that fail to decode (old schema, corrupted, or not a project)
-            console.log('Skipping account that failed to decode:', acc.pubkey.toString().slice(0, 8));
-            continue;
-          }
-        }
+        projectAccounts = (await rpcWithRetry(() => (program as any).account.project.all())) as any[];
       } catch (error: any) {
         console.error('Error fetching projects:', error);
         setProjects([]);
         return;
       }
       
-      // Filter to only show OPEN projects (hide closed projects from public view)
+      // Cache the results
+      try {
+        const toCache = projectAccounts.map((p: any) => ({ pubkey: p.publicKey.toString(), account: p.account }));
+        setCache('projects_list', toCache, 30_000); // 30 second cache
+      } catch {}
+      
+      // Filter to only show OPEN projects
       const openProjects = projectAccounts.filter((project: any) => {
         try {
           const collabStatus = project.account.acceptingCollaborations;
@@ -271,13 +259,13 @@ export default function ProjectsPage() {
   }, [projects]);
 
   return (
-    <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+    <div className={`min-h-screen bg-(--background) ${premium.className}`}>
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
       {/* Header */}
       <div className="mb-8 flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 mb-2 tracking-tight">Discover Projects</h1>
-          <p className="text-gray-600 text-lg">
+          <h1 className="text-4xl font-bold text-(--text-primary) mb-2 tracking-tight">Discover Projects</h1>
+          <p className="text-(--text-secondary) text-lg">
             Browse Web3 projects and find collaboration opportunities on Solana
           </p>
         </div>
@@ -293,8 +281,9 @@ export default function ProjectsPage() {
         )}
       </div>
 
-      {/* Filters */}
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6 mb-6 space-y-4">
+      {/* Filters - only show when wallet connected */}
+      {publicKey && (
+      <div className="bg-(--surface) border border-(--border) rounded-2xl shadow-sm p-6 mb-6 space-y-4">
         {/* Search */}
         <div>
           <input
@@ -302,7 +291,7 @@ export default function ProjectsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search projects by name or description..."
-            className="w-full bg-gray-50 text-gray-900 rounded-lg px-4 py-3 border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
+            className="w-full bg-(--surface-hover) text-(--text-primary) rounded-lg px-4 py-3 border border-(--border) focus:border-[#00D4AA] focus:outline-none transition-colors"
           />
         </div>
 
@@ -310,11 +299,11 @@ export default function ProjectsPage() {
         <div className="flex flex-wrap gap-4">
           {/* Status Filter */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-gray-700 text-sm font-medium mb-2">Filter by Status</label>
+            <label className="block text-(--text-primary) text-sm font-medium mb-2">Filter by Status</label>
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="w-full bg-gray-50 text-gray-900 rounded-lg px-4 py-2 border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
+              className="w-full bg-(--surface-hover) text-(--text-primary) rounded-lg px-4 py-2 border border-(--border) focus:border-[#00D4AA] focus:outline-none transition-colors"
             >
               <option value="all">All Status</option>
               {Object.entries(STATUS_BADGES).map(([key, val]) => (
@@ -327,11 +316,11 @@ export default function ProjectsPage() {
 
           {/* Tech Filter */}
           <div className="flex-1 min-w-[200px]">
-            <label className="block text-gray-700 text-sm font-medium mb-2">Filter by Tech</label>
+            <label className="block text-(--text-primary) text-sm font-medium mb-2">Filter by Tech</label>
             <select
               value={filterTech}
               onChange={(e) => setFilterTech(e.target.value)}
-              className="w-full bg-gray-50 text-gray-900 rounded-lg px-4 py-2 border border-gray-200 focus:border-gray-900 focus:outline-none transition-colors"
+              className="w-full bg-(--surface-hover) text-(--text-primary) rounded-lg px-4 py-2 border border-(--border) focus:border-[#00D4AA] focus:outline-none transition-colors"
             >
               <option value="all">All Technology</option>
               {allTechs.map((tech) => (
@@ -343,17 +332,20 @@ export default function ProjectsPage() {
           </div>
         </div>
       </div>
+      )}
 
-      {/* Results Count */}
-      <div className="mb-6 text-gray-600 text-sm font-medium">
+      {/* Results Count - only show when wallet connected */}
+      {publicKey && (
+      <div className="mb-6 text-(--text-secondary) text-sm font-medium">
         Showing {filteredProjects.length} of {projects.length} projects
       </div>
+      )}
 
       {/* Projects Grid */}
       {loading ? (
         <div className="text-center py-16">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-gray-200 border-t-gray-900 mb-4"></div>
-          <p className="text-gray-600 font-medium">Loading projects...</p>
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-(--border) border-t-[#00D4AA] mb-4"></div>
+          <p className="text-(--text-secondary) font-medium">Loading projects...</p>
         </div>
       ) : !publicKey ? (
         <div className="text-center py-16 bg-(--surface) border border-(--border) rounded-2xl shadow-sm">
@@ -364,10 +356,10 @@ export default function ProjectsPage() {
           </p>
         </div>
       ) : filteredProjects.length === 0 ? (
-        <div className="text-center py-16 bg-white border border-gray-200 rounded-2xl shadow-sm">
+        <div className="text-center py-16 bg-(--surface) border border-(--border) rounded-2xl shadow-sm">
           <div className="text-6xl mb-4">📂</div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">No projects found</h3>
-          <p className="text-gray-600 mb-6">
+          <h3 className="text-xl font-bold text-(--text-primary) mb-2">No projects found</h3>
+          <p className="text-(--text-secondary) mb-6">
             {projects.length === 0
               ? 'Be the first to create a project!'
               : 'Try adjusting your filters or search query'}

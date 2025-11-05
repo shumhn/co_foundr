@@ -119,19 +119,19 @@ export default function FoundersPage() {
   }, [founders, query]);
 
   return (
-    <div className={`min-h-screen bg-[#F8F9FA] ${premium.className}`}>
+    <div className={`min-h-screen bg-(--background) ${premium.className}`}>
       <div className="max-w-7xl mx-auto px-4 py-10">
       <div className="mb-8 flex items-center justify-between gap-3">
         <div>
-          <h1 className="text-4xl font-bold text-gray-900 tracking-tight">Founders</h1>
-          <p className="text-gray-600 text-lg mt-1">Discover teams building in Web3</p>
+          <h1 className="text-4xl font-bold text-(--text-primary) tracking-tight">Founders</h1>
+          <p className="text-(--text-secondary) text-lg mt-1">Discover teams building in Web3</p>
         </div>
         <div className="flex items-center gap-2">
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search founders by name, bio, or wallet"
-            className="bg-gray-50 border border-gray-200 rounded-lg text-gray-900 px-4 py-3 w-80 focus:border-gray-900 focus:outline-none transition-colors"
+            className="bg-(--surface-hover) border border-(--border) rounded-lg text-(--text-primary) px-4 py-3 w-80 focus:border-[#00D4AA] focus:outline-none transition-colors"
           />
         </div>
       </div>
@@ -139,7 +139,7 @@ export default function FoundersPage() {
       {loading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="h-48 rounded-2xl bg-white border border-gray-200 animate-pulse" />
+            <div key={i} className="h-48 rounded-2xl bg-(--surface) border border-(--border) animate-pulse" />
           ))}
         </div>
       ) : !publicKey ? (
@@ -151,8 +151,8 @@ export default function FoundersPage() {
           </p>
         </div>
       ) : filtered.length === 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-12 text-center">
-          <p className="text-gray-600 font-medium">No founders found.</p>
+        <div className="rounded-2xl border border-(--border) bg-(--surface) shadow-sm p-12 text-center">
+          <p className="text-(--text-secondary) font-medium">No founders found.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -160,11 +160,11 @@ export default function FoundersPage() {
             <Link
               key={f.wallet}
               href={`/founders/${f.wallet}`}
-              className="group rounded-2xl border border-gray-200 bg-white hover:shadow-lg hover:border-gray-900 transition-all p-6"
+              className="group rounded-2xl border border-(--border) bg-(--surface) hover:shadow-lg hover:border-[#00D4AA] transition-all p-6"
             >
               <div className="flex items-start gap-3 mb-3">
                 {/* Profile Picture */}
-                <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center shrink-0 overflow-hidden">
+                <div className="w-12 h-12 rounded-full bg-(--surface-hover) flex items-center justify-center shrink-0 overflow-hidden">
                   {f.profilePicture && typeof window !== 'undefined' && localStorage.getItem(`ipfs_image_${f.profilePicture}`) ? (
                     <img 
                       src={localStorage.getItem(`ipfs_image_${f.profilePicture}`) || ''} 
@@ -172,20 +172,20 @@ export default function FoundersPage() {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <span className="text-xl text-gray-400">?</span>
+                    <span className="text-xl text-(--text-muted)">?</span>
                   )}
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <div className="text-gray-900 font-bold text-lg group-hover:text-gray-700 transition-colors truncate">
+                  <div className="text-(--text-primary) font-bold text-lg group-hover:text-[#00D4AA] transition-colors truncate">
                     {f.displayName || f.username}
                   </div>
                   <div className="text-[#00D4AA] text-sm font-semibold">@{f.displayName || f.username}</div>
                   {f.role && (
-                    <div className="text-xs text-gray-600 mt-0.5">{f.role}</div>
+                    <div className="text-xs text-(--text-secondary) mt-0.5">{f.role}</div>
                   )}
                   {f.country && (
-                    <div className="text-xs text-gray-500 mt-0.5">📍 {f.country}</div>
+                    <div className="text-xs text-(--text-muted) mt-0.5">📍 {f.country}</div>
                   )}
                 </div>
                 
@@ -195,19 +195,19 @@ export default function FoundersPage() {
               </div>
               
               {f.bio && (
-                <p className="text-sm text-gray-600 mb-3 line-clamp-2 leading-relaxed">{f.bio}</p>
+                <p className="text-sm text-(--text-secondary) mb-3 line-clamp-2 leading-relaxed">{f.bio}</p>
               )}
               
               {/* Tech Stack */}
               {f.techStack && f.techStack.length > 0 && (
                 <div className="flex flex-wrap gap-1.5 mb-3">
                   {f.techStack.slice(0, 3).map((tech, idx) => (
-                    <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">
+                    <span key={idx} className="text-[10px] px-2 py-0.5 rounded bg-(--surface-hover) text-(--text-primary) font-medium">
                       {tech}
                     </span>
                   ))}
                   {f.techStack.length > 3 && (
-                    <span className="text-[10px] px-2 py-0.5 rounded bg-gray-100 text-gray-600 font-medium">
+                    <span className="text-[10px] px-2 py-0.5 rounded bg-(--surface-hover) text-(--text-secondary) font-medium">
                       +{f.techStack.length - 3}
                     </span>
                   )}
@@ -216,13 +216,13 @@ export default function FoundersPage() {
               
               {/* Social Links */}
               {(f.github || f.twitter) && (
-                <div className="flex gap-2 pt-3 border-t border-gray-100">
+                <div className="flex gap-2 pt-3 border-t border-(--border)">
                   {f.github && (
                     <a
                       href={f.github}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-gray-900 hover:underline inline-flex items-center gap-1 font-semibold"
+                      className="text-xs text-(--text-primary) hover:underline inline-flex items-center gap-1 font-semibold"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
@@ -236,7 +236,7 @@ export default function FoundersPage() {
                       href={f.twitter}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-gray-900 hover:underline inline-flex items-center gap-1 font-semibold"
+                      className="text-xs text-(--text-primary) hover:underline inline-flex items-center gap-1 font-semibold"
                       onClick={(e) => e.stopPropagation()}
                     >
                       <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

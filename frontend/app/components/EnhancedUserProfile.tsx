@@ -385,9 +385,9 @@ export default function EnhancedUserProfile() {
 
   if (!publicKey) {
     return (
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-12 text-center">
-        <h2 className={`${display.className} text-2xl font-bold text-gray-900 mb-2`}>Connect Your Wallet</h2>
-        <p className="text-gray-600">Connect your Phantom wallet to create your developer profile</p>
+      <div className="bg-(--surface) border border-(--border) rounded-2xl shadow-sm p-12 text-center">
+        <h2 className={`${display.className} text-2xl font-bold text-(--text-primary) mb-2`}>Connect Your Wallet</h2>
+        <p className="text-(--text-secondary)">Connect your Phantom wallet to create your developer profile</p>
       </div>
     );
   }
@@ -451,14 +451,14 @@ export default function EnhancedUserProfile() {
           </div>
         )}
         
-      <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-(--surface) border border-(--border) rounded-2xl shadow-sm overflow-hidden">
         {/* Header */}
         <div className="h-24 bg-gradient-to-r from-[#00D4AA] to-[#00B894]"></div>
 
         <div className="relative px-4 pb-2">
           {/* Profile Picture */}
           <div className="absolute -top-10 left-4">
-            <div className="w-20 h-20 rounded-full border-4 border-white bg-gray-100 flex items-center justify-center overflow-hidden">
+            <div className="w-20 h-20 rounded-full border-4 border-(--surface) bg-(--surface-hover) flex items-center justify-center overflow-hidden">
               {metadata?.profile_picture ? (
                 <img 
                   src={typeof window !== 'undefined' ? localStorage.getItem(`ipfs_image_${metadata.profile_picture}`) || '' : ''} 
@@ -466,7 +466,7 @@ export default function EnhancedUserProfile() {
                   className="w-full h-full object-cover" 
                 />
               ) : (
-                <span className="text-3xl text-gray-400">?</span>
+                <span className="text-3xl text-(--text-muted)">?</span>
               )}
             </div>
           </div>
@@ -474,11 +474,11 @@ export default function EnhancedUserProfile() {
           <div className="pt-12">
             <div className="flex justify-between items-start mb-2">
               <div>
-                <h2 className={`${display.className} text-xl font-bold text-gray-900 mb-0.5`}>
+                <h2 className={`${display.className} text-xl font-bold text-(--text-primary) mb-0.5`}>
                   {user.display_name || user.username}
                 </h2>
                 <p className="text-[#00D4AA] font-semibold text-sm">@{user.display_name || user.username}</p>
-                <p className="text-gray-600 text-sm mb-0">{user.role}</p>
+                <p className="text-(--text-secondary) text-sm mb-0">{user.role}</p>
               </div>
 
               {/* Action Buttons - Top Right */}
@@ -549,15 +549,15 @@ export default function EnhancedUserProfile() {
             <div className="space-y-4 mt-3">
               {user.bio && (
                 <div>
-                  <h3 className="text-gray-900 font-bold mb-2">Bio</h3>
-                  <p className="text-gray-700 leading-relaxed">{user.bio}</p>
+                  <h3 className="text-(--text-primary) font-bold mb-2">Bio</h3>
+                  <p className="text-(--text-secondary) leading-relaxed">{user.bio}</p>
                 </div>
               )}
 
               {(user.contactInfo || user.contact_info) && (
                 <div>
-                  <h3 className="text-gray-900 font-bold mb-2">Contact Info</h3>
-                  <p className="text-gray-700 leading-relaxed">{user.contactInfo || user.contact_info}</p>
+                  <h3 className="text-(--text-primary) font-bold mb-2">Contact Info</h3>
+                  <p className="text-(--text-secondary) leading-relaxed">{user.contactInfo || user.contact_info}</p>
                 </div>
               )}
 
@@ -595,10 +595,10 @@ export default function EnhancedUserProfile() {
               {/* Tech Stack display */}
               {Array.isArray((metadata as any)?.tech_stack) && (metadata as any).tech_stack.length > 0 && (
                 <div className="mt-6">
-                  <h3 className="text-gray-900 font-bold mb-2">Tech Stack</h3>
+                  <h3 className="text-(--text-primary) font-bold mb-2">Tech Stack</h3>
                   <div className="flex flex-wrap gap-2">
                     {((metadata as any).tech_stack as string[]).map((t, idx) => (
-                      <span key={idx} className="px-3 py-1.5 bg-gray-100 border border-gray-300 text-gray-800 text-sm rounded-full">
+                      <span key={idx} className="px-3 py-1.5 bg-(--surface-hover) border border-(--border) text-(--text-primary) text-sm rounded-full">
                         <span className="mr-1">{TECH_EMOJI[t] || '🔧'}</span>{t}
                       </span>
                     ))}
@@ -615,21 +615,21 @@ export default function EnhancedUserProfile() {
 
   // Create/Edit Form
   return (
-    <div className="bg-white border border-gray-200 rounded-2xl shadow-sm p-8 max-w-2xl mx-auto">
-      <h2 className={`${display.className} text-3xl font-bold text-gray-900 mb-6`}>
+    <div className="bg-(--surface) border border-(--border) rounded-2xl shadow-sm p-8 max-w-2xl mx-auto">
+      <h2 className={`${display.className} text-3xl font-bold text-(--text-primary) mb-6`}>
         {isEditing ? 'Edit Your Profile' : 'Create Your Developer Profile'}
       </h2>
 
       <div className="space-y-6">
         {/* Profile Picture */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-3">Profile Picture</label>
+          <label className="block text-(--text-primary) font-semibold mb-3">Profile Picture</label>
           <div className="flex items-center gap-4">
-            <div className="w-24 h-24 rounded-full bg-gray-100 border border-gray-200 flex items-center justify-center overflow-hidden">
+            <div className="w-24 h-24 rounded-full bg-(--surface-hover) border border-(--border) flex items-center justify-center overflow-hidden">
               {profilePicPreview ? (
                 <img src={profilePicPreview} alt="Preview" className="w-full h-full object-cover" />
               ) : (
-                <span className="text-3xl text-gray-400">?</span>
+                <span className="text-3xl text-(--text-muted)">?</span>
               )}
             </div>
             <div className="flex-1">
@@ -637,17 +637,17 @@ export default function EnhancedUserProfile() {
                 type="file"
                 accept="image/*"
                 onChange={handleImageUpload}
-                className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+                className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
               />
-              <p className="text-xs text-gray-500 mt-1">Max 5MB • JPG, PNG, GIF</p>
+              <p className="text-xs text-(--text-muted) mt-1">Max 5MB • JPG, PNG, GIF</p>
             </div>
           </div>
         </div>
 
         {/* Username */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Username <span className="text-xs text-gray-500">(max 32 chars)</span>
+          <label className="block text-(--text-primary) font-semibold mb-2">
+            Username <span className="text-xs text-(--text-muted)">(max 32 chars)</span>
           </label>
           <input
             type="text"
@@ -655,33 +655,33 @@ export default function EnhancedUserProfile() {
             onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase() })}
             maxLength={32}
             disabled={isEditing}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA] disabled:bg-gray-100 disabled:cursor-not-allowed"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA] disabled:bg-(--surface-hover) disabled:cursor-not-allowed"
             placeholder="yourhandle"
           />
           {errors.username && <p className="text-red-600 text-sm mt-1">{errors.username}</p>}
-          {isEditing && <p className="text-xs text-gray-500 mt-1">Username cannot be changed after creation</p>}
+          {isEditing && <p className="text-xs text-(--text-muted) mt-1">Username cannot be changed after creation</p>}
         </div>
 
         {/* Display Name */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Display Name <span className="text-xs text-gray-500">(optional)</span></label>
+          <label className="block text-(--text-primary) font-semibold mb-2">Display Name <span className="text-xs text-(--text-muted)">(optional)</span></label>
           <input
             type="text"
             value={formData.displayName}
             onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
             maxLength={50}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
             placeholder="Your public display name"
           />
         </div>
 
         {/* Role */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Role</label>
+          <label className="block text-(--text-primary) font-semibold mb-2">Role</label>
           <select
             value={formData.role}
             onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
           >
             <option value="">Select your role...</option>
             {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
@@ -692,13 +692,13 @@ export default function EnhancedUserProfile() {
         {/* Custom Role Input (if Other selected) */}
         {formData.role === 'Other' && (
           <div>
-            <label className="block text-gray-700 font-semibold mb-2">Specify Role <span className="text-xs text-gray-500">(max 30 chars)</span></label>
+            <label className="block text-(--text-primary) font-semibold mb-2">Specify Role <span className="text-xs text-(--text-muted)">(max 30 chars)</span></label>
             <input
               type="text"
               value={formData.role}
               onChange={(e) => setFormData({ ...formData, role: e.target.value })}
               maxLength={30}
-              className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+              className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
               placeholder="Your role"
             />
           </div>
@@ -706,7 +706,7 @@ export default function EnhancedUserProfile() {
 
         {/* Tech Stacks (multi-select) */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Add your tech stack</label>
+          <label className="block text-(--text-primary) font-semibold mb-2">Add your tech stack</label>
           <div className="flex flex-wrap gap-2 mb-3">
             {TECH_STACKS.map((t) => {
               const selected = techStacks.includes(t);
@@ -717,7 +717,7 @@ export default function EnhancedUserProfile() {
                   onClick={() => {
                     setTechStacks((prev) => selected ? prev.filter(x => x !== t) : [...prev, t]);
                   }}
-                  className={`px-3 py-1.5 rounded-full border text-sm ${selected ? 'bg-[#00D4AA] border-[#00D4AA] text-gray-900' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+                  className={`px-3 py-1.5 rounded-full border text-sm ${selected ? 'bg-[#00D4AA] border-[#00D4AA] text-gray-900' : 'bg-(--surface) border-(--border) text-(--text-primary) hover:bg-(--surface-hover)'}`}
                 >
                   <span className="mr-1">{TECH_EMOJI[t] || '🔧'}</span>{t}
                 </button>
@@ -731,7 +731,7 @@ export default function EnhancedUserProfile() {
               onChange={(e) => setCustomTech(e.target.value)}
               maxLength={24}
               placeholder="Add custom tech"
-              className="flex-1 bg-white border border-gray-300 text-gray-900 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+              className="flex-1 bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
             />
             <button
               type="button"
@@ -750,9 +750,9 @@ export default function EnhancedUserProfile() {
           {techStacks.length > 0 && (
             <div className="mt-3 flex flex-wrap gap-2">
               {techStacks.map((tag) => (
-                <span key={tag} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-gray-100 border border-gray-300 text-sm text-gray-800">
+                <span key={tag} className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-(--surface-hover) border border-(--border) text-sm text-(--text-primary)">
                   {tag}
-                  <button type="button" onClick={() => setTechStacks(techStacks.filter(t => t !== tag))} className="text-gray-500 hover:text-gray-800" aria-label={`Remove ${tag}`}>
+                  <button type="button" onClick={() => setTechStacks(techStacks.filter(t => t !== tag))} className="text-(--text-muted) hover:text-(--text-primary)" aria-label={`Remove ${tag}`}>
                     ×
                   </button>
                 </span>
@@ -764,26 +764,26 @@ export default function EnhancedUserProfile() {
 
         {/* Bio */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Bio <span className="text-xs text-gray-500">(max 200 chars)</span></label>
+          <label className="block text-(--text-primary) font-semibold mb-2">Bio <span className="text-xs text-(--text-muted)">(max 200 chars)</span></label>
           <textarea
             value={formData.bio}
             onChange={(e) => setFormData({ ...formData, bio: e.target.value })}
             maxLength={200}
             rows={4}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
             placeholder="Tell us about yourself..."
           />
-          <div className="text-xs text-gray-500 mt-1">{formData.bio.length}/200</div>
+          <div className="text-xs text-(--text-muted) mt-1">{formData.bio.length}/200</div>
         </div>
 
         {/* GitHub URL */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">GitHub Profile URL</label>
+          <label className="block text-(--text-primary) font-semibold mb-2">GitHub Profile URL</label>
           <input
             type="url"
             value={formData.githubUrl}
             onChange={(e) => setFormData({ ...formData, githubUrl: e.target.value })}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
             placeholder="https://github.com/yourhandle"
           />
           {errors.githubUrl && <p className="text-red-600 text-sm mt-1">{errors.githubUrl}</p>}
@@ -791,12 +791,12 @@ export default function EnhancedUserProfile() {
 
         {/* Twitter URL */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">Twitter/X Profile URL</label>
+          <label className="block text-(--text-primary) font-semibold mb-2">Twitter/X Profile URL</label>
           <input
             type="url"
             value={formData.twitterUrl}
             onChange={(e) => setFormData({ ...formData, twitterUrl: e.target.value })}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
             placeholder="https://x.com/yourhandle"
           />
           {errors.twitterUrl && <p className="text-red-600 text-sm mt-1">{errors.twitterUrl}</p>}
@@ -804,17 +804,17 @@ export default function EnhancedUserProfile() {
 
         {/* Contact Info - Optional but Recommended */}
         <div>
-          <label className="block text-gray-700 font-semibold mb-2">
-            Contact Info <span className="text-xs text-gray-500">(Optional but recommended)</span>
+          <label className="block text-(--text-primary) font-semibold mb-2">
+            Contact Info <span className="text-xs text-(--text-muted)">(Optional but recommended)</span>
           </label>
           <input
             type="text"
             value={formData.contactInfo}
             onChange={(e) => setFormData({ ...formData, contactInfo: e.target.value })}
-            className="w-full bg-white border border-gray-300 text-gray-900 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
+            className="w-full bg-(--surface) border border-(--border) text-(--text-primary) rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-[#00D4AA]/30 focus:border-[#00D4AA]"
             placeholder="WhatsApp: +1234567890, Discord: username#1234, or Meeting link"
           />
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-(--text-muted) mt-1">
             How should people reach you? (WhatsApp, Discord, Telegram, meeting link, etc.)
           </p>
           {errors.contactInfo && <p className="text-red-600 text-sm mt-1">{errors.contactInfo}</p>}
