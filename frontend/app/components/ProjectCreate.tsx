@@ -3,10 +3,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@solana/wallet-adapter-react';
-import { SystemProgram, PublicKey } from '@solana/web3.js';
 import { useAnchorProgram, getUserPDA } from '../hooks/useAnchorProgram';
-import { getProjectPDA } from '../utils/programHelpers';
-import { uploadImageToIPFS } from '../utils/ipfs';
+import { PublicKey, SystemProgram } from '@solana/web3.js';
+import { Sora } from 'next/font/google';
+
+const premium = Sora({ subsets: ['latin'], weight: ['600', '700'] });
 
 // Enums as Anchor expects in TS
 const CollaborationLevel = {
@@ -606,7 +607,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             <button
               key={lvl}
               onClick={() => setCollabLevel(lvl)}
-              className={`px-3 py-2 rounded-lg border text-sm ${collabLevel===lvl? 'bg-[#00D4AA] border-[#00D4AA] text-white':'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              className={`px-3 py-2 rounded-lg border text-sm ${collabLevel===lvl? `bg-[#00D4AA] border-[#00D4AA] text-black font-black ${premium.className}`:'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
             >
               {lvl}
             </button>
@@ -629,7 +630,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             <button
               key={opt.key}
               onClick={() => setStatus(opt.key)}
-              className={`px-3 py-2 rounded-lg border text-sm ${status===opt.key? 'bg-[#00D4AA] border-[#00D4AA] text-white':'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
+              className={`px-3 py-2 rounded-lg border text-sm ${status===opt.key? `bg-[#00D4AA] border-[#00D4AA] text-black font-black ${premium.className}`:'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
             >
               {opt.label}
             </button>
@@ -665,7 +666,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
           <button
             type="button"
             onClick={() => { addCustom(customNeed, setNeeds, 10); setCustomNeed(''); }}
-            className="px-4 py-2 rounded-lg bg-[#00D4AA] hover:bg-[#00B894] text-white"
+            className={`px-4 py-2 rounded-lg bg-[#00D4AA] hover:bg-[#00B894] text-black font-black ${premium.className}`}
           >
             + Add
           </button>
@@ -800,7 +801,7 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
         <button
           onClick={handleSubmit}
           disabled={!canSubmit || loading}
-          className="flex-1 bg-[#00D4AA] hover:bg-[#00B894] text-white px-6 py-3 rounded-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+          className={`flex-1 bg-[#00D4AA] hover:bg-[#00B894] text-black px-6 py-3 rounded-lg font-black disabled:opacity-50 disabled:cursor-not-allowed ${premium.className}`}
         >
           {loading ? 'Creating…' : 'Create Project'}
         </button>

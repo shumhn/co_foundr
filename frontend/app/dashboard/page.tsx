@@ -230,7 +230,7 @@ export default function DashboardPage() {
                 </div>
                 <Link
                   href="/projects/new"
-                  className="bg-[#00D4AA] hover:bg-[#00B894] text-white px-4 py-2 rounded-lg font-semibold text-sm transition-colors"
+                  className={`bg-[#00D4AA] hover:bg-[#00B894] text-black px-4 py-2 rounded-lg font-black text-sm transition-colors ${premium.className}`}
                 >
                   + New Project
                 </Link>
@@ -438,7 +438,7 @@ export default function DashboardPage() {
               </p>
               <Link
                 href="/projects"
-                className="inline-block bg-[#00D4AA] hover:bg-[#00B894] text-white px-8 py-3 rounded-lg font-bold transition-colors"
+                className={`inline-block bg-[#00D4AA] hover:bg-[#00B894] text-black px-8 py-3 rounded-lg font-black transition-colors ${premium.className}`}
               >
                 Browse Projects →
               </Link>

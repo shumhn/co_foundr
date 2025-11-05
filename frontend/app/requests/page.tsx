@@ -3,13 +3,13 @@
 import { useEffect, useMemo, useState, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
+import { Sora } from 'next/font/google';
 import { PublicKey } from '@solana/web3.js';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { useAnchorProgram } from '../hooks/useAnchorProgram';
 import { EmptyState } from '../components/EmptyState';
-import { Sora } from 'next/font/google';
 
-const premium = Sora({ subsets: ['latin'], weight: ['400', '500', '600'] });
+const premium = Sora({ subsets: ['latin'], weight: ['600', '700'] });
 
 function StatusBadge({ status }: { status: string }) {
   const styles =
@@ -506,7 +506,7 @@ function RequestsPageContent() {
           </div>
           <button
             onClick={fetchAll}
-            className="bg-[#00D4AA] hover:bg-[#00B894] text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-colors"
+            className={`bg-[#00D4AA] hover:bg-[#00B894] text-black px-4 py-2 rounded-lg text-sm font-black shadow-sm transition-colors ${premium.className}`}
           >
             Refresh
           </button>
@@ -517,7 +517,7 @@ function RequestsPageContent() {
             onClick={() => setActiveTab('open')}
             className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
               activeTab === 'open'
-                ? 'bg-[#00D4AA] border-[#00D4AA] text-white shadow-sm'
+                ? `bg-[#00D4AA] border-[#00D4AA] text-black shadow-sm font-black ${premium.className}`
                 : 'bg-(--surface) border-(--border) text-(--text-secondary) hover:text-(--text-primary)'
             }`}
           >
@@ -527,7 +527,7 @@ function RequestsPageContent() {
             onClick={() => setActiveTab('received')}
             className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
               activeTab === 'received'
-                ? 'bg-[#00D4AA] border-[#00D4AA] text-white shadow-sm'
+                ? `bg-[#00D4AA] border-[#00D4AA] text-black shadow-sm font-black ${premium.className}`
                 : 'bg-(--surface) border-(--border) text-(--text-secondary) hover:text-(--text-primary)'
             }`}
           >
@@ -537,7 +537,7 @@ function RequestsPageContent() {
             onClick={() => setActiveTab('sent')}
             className={`px-4 py-2 rounded-lg border text-sm font-medium transition-colors ${
               activeTab === 'sent'
-                ? 'bg-[#00D4AA] border-[#00D4AA] text-white shadow-sm'
+                ? `bg-[#00D4AA] border-[#00D4AA] text-black shadow-sm font-black ${premium.className}`
                 : 'bg-(--surface) border-(--border) text-(--text-secondary) hover:text-(--text-primary)'
             }`}
           >

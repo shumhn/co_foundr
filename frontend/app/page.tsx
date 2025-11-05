@@ -135,7 +135,7 @@ export default function Home() {
               Connect with talented Web3 developers, form teams, and collaborate on projects built on Solana. c0Foundr helps you find the right people to bring your ideas to life.
             </p>
             <div className="flex justify-center gap-4">
-              <Link href="/projects/new" className="px-8 py-4 bg-[#00D4AA] hover:bg-[#00B894] text-white font-black text-lg rounded-lg transition-all shadow-lg hover:shadow-xl">
+              <Link href="/projects/new" className={`px-8 py-4 bg-[#00D4AA] hover:bg-[#00B894] text-black font-black text-lg rounded-lg transition-all shadow-lg hover:shadow-xl ${premium.className}`}>
                 Start Building
               </Link>
               <Link href="/founders" className="px-8 py-4 bg-(--surface-hover) hover:bg-(--surface) text-(--text-primary) font-bold rounded-lg transition-all">

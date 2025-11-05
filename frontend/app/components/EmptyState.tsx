@@ -1,6 +1,9 @@
 'use client';
 
 import Link from 'next/link';
+import { Sora } from 'next/font/google';
+
+const premium = Sora({ subsets: ['latin'], weight: ['600', '700'] });
 
 interface EmptyStateProps {
   icon: string;
@@ -34,14 +37,14 @@ export function EmptyState({
             actionHref ? (
               <Link
                 href={actionHref}
-                className="px-6 py-3 rounded-lg font-semibold transition-colors bg-[#00D4AA] hover:bg-[#00B894] text-white shadow-sm"
+                className={`px-6 py-3 rounded-lg font-black transition-colors bg-[#00D4AA] hover:bg-[#00B894] text-black shadow-sm ${premium.className}`}
               >
                 {actionLabel}
               </Link>
             ) : (
               <button
                 onClick={onAction}
-                className="px-6 py-3 rounded-lg font-semibold transition-colors bg-[#00D4AA] hover:bg-[#00B894] text-white shadow-sm"
+                className={`px-6 py-3 rounded-lg font-black transition-colors bg-[#00D4AA] hover:bg-[#00B894] text-black shadow-sm ${premium.className}`}
               >
                 {actionLabel}
               </button>

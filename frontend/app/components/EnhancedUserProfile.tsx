@@ -8,7 +8,7 @@ import { uploadImageToIPFS, uploadMetadataToIPFS, fetchMetadataFromIPFS, createD
 import { Space_Grotesk, Sora } from 'next/font/google';
 
 const display = Space_Grotesk({ subsets: ['latin'], weight: ['700'] });
-const premium = Sora({ subsets: ['latin'], weight: ['400', '600'] });
+const premium = Sora({ subsets: ['latin'], weight: ['600', '700'] });
 
 const ROLES = ['Frontend Developer', 'Backend Developer', 'Fullstack Developer', 'Smart Contract Developer', 'Designer', 'DevOps', 'Product Manager', 'Other'];
 const TECH_STACKS = ['Solana', 'Anchor', 'React', 'Next.js', 'TypeScript', 'Rust', 'Node.js', 'Python', 'Go', 'Docker', 'Kubernetes', 'AWS', 'GraphQL', 'MongoDB', 'PostgreSQL', 'Other'];
@@ -438,7 +438,7 @@ export default function EnhancedUserProfile() {
                       }
                     }}
                     disabled={loading}
-                    className="px-6 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-bold rounded-lg disabled:opacity-50"
+                    className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-black rounded-lg disabled:opacity-50"
                   >
                     {loading ? 'Migrating...' : 'Migrate Account'}
                   </button>
@@ -506,7 +506,7 @@ export default function EnhancedUserProfile() {
                   setProfilePicPreview(metadata?.profile_picture || '');
                   setIsEditing(true);
                 }}
-                className="px-4 py-2 bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-semibold rounded-lg transition-colors text-sm"
+                className={`px-6 py-3 bg-[#00D4AA] hover:bg-[#00B894] text-black font-black rounded-lg transition-colors disabled:opacity-50 ${premium.className}`}
               >
                 Edit Profile
               </button>
@@ -717,7 +717,7 @@ export default function EnhancedUserProfile() {
                   onClick={() => {
                     setTechStacks((prev) => selected ? prev.filter(x => x !== t) : [...prev, t]);
                   }}
-                  className={`px-3 py-1.5 rounded-full border text-sm ${selected ? 'bg-[#00D4AA] border-[#00D4AA] text-gray-900' : 'bg-(--surface) border-(--border) text-(--text-primary) hover:bg-(--surface-hover)'}`}
+                  className={`px-3 py-1.5 rounded-full border text-sm ${selected ? `bg-[#00D4AA] border-[#00D4AA] text-black font-black ${premium.className}` : 'bg-(--surface) border-(--border) text-(--text-primary) hover:bg-(--surface-hover)'}`}
                 >
                   <span className="mr-1">{TECH_EMOJI[t] || '🔧'}</span>{t}
                 </button>
@@ -742,7 +742,7 @@ export default function EnhancedUserProfile() {
                 setTechStacks((prev) => (prev.includes(v) ? prev : [...prev, v]));
                 setCustomTech('');
               }}
-              className="px-4 py-2 rounded-lg bg-[#00D4AA] hover:bg-[#00B894] text-gray-900 font-bold"
+              className={`px-4 py-2 rounded-lg bg-[#00D4AA] hover:bg-[#00B894] text-black font-black ${premium.className}`}
             >
               + Add
             </button>
