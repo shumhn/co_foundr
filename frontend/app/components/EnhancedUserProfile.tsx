@@ -300,23 +300,53 @@ export default function EnhancedUserProfile() {
 
     setLoading(true);
     try {
+      console.log('🚀 Starting profile save...');
       console.log('📝 Creating/updating profile with publicKey:', publicKey.toString());
+      
       let profilePicHash = '';
       if (profilePicFile) {
-        profilePicHash = await uploadImageToIPFS(profilePicFile);
+        console.log('📸 Uploading profile picture to IPFS...');
+        try {
+          profilePicHash = await Promise.race([
+            uploadImageToIPFS(profilePicFile),
+            new Promise<string>((_, reject) => 
+              setTimeout(() => reject(new Error('Image upload timeout after 30s')), 30000)
+            )
+          ]);
+          console.log('✅ Profile picture uploaded:', profilePicHash);
+        } catch (err: any) {
+          console.error('❌ Profile picture upload failed:', err);
+          alert('⚠️ Profile picture upload failed. Continuing without image...');
+          profilePicHash = '';
+        }
       }
 
       // Upload metadata to IPFS
+      console.log('☁️ Uploading metadata to IPFS...');
       const metadataObj = {
         display_name: formData.displayName,
         tech_stack: techStacks,
-        profile_picture: profilePicFile ? await uploadImageToIPFS(profilePicFile) : '',
+        profile_picture: profilePicHash,
         social_links: {
           twitter: formData.twitterUrl,
         },
         country: formData.country,
       };
-      const metadataHash = await uploadMetadataToIPFS(metadataObj);
+      
+      let metadataHash = '';
+      try {
+        metadataHash = await Promise.race([
+          uploadMetadataToIPFS(metadataObj),
+          new Promise<string>((_, reject) => 
+            setTimeout(() => reject(new Error('Metadata upload timeout after 30s')), 30000)
+          )
+        ]);
+        console.log('✅ Metadata uploaded:', metadataHash);
+      } catch (err: any) {
+        console.error('❌ Metadata upload failed:', err);
+        alert('⚠️ Metadata upload failed. Using empty hash...');
+        metadataHash = '';
+      }
 
       const [userPDA] = getUserPDA(publicKey);
       console.log('🔑 User PDA:', userPDA.toString());
