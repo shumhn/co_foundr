@@ -31,8 +31,8 @@ export default function Logo({ withWordmark = true, href = '/', className = '' }
         </svg>
       </div>
       {withWordmark && (
-        <span className={`${Display.className} ml-2 text-base font-bold tracking-tight text-gray-900`}>
-          Cofounder
+        <span className={`${Display.className} ml-2 text-base font-bold tracking-tight text-(--text-primary)`}>
+          c0Foundr
         </span>
       )}
     </div>

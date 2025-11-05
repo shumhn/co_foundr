@@ -619,12 +619,17 @@ export default function ProjectDetailPage() {
                       roleReq.accepted ?? roleReq.filled ?? roleReq.current ?? 0
                     );
                     const isFull = accepted >= needed;
+                    const fillPercentage = needed > 0 ? (accepted / needed) * 100 : 0;
+                    const getColorClass = () => {
+                      if (isFull) return 'bg-red-100 text-red-700 border-red-300';
+                      if (fillPercentage >= 50) return 'bg-yellow-100 text-yellow-700 border-yellow-300';
+                      return 'bg-green-100 text-green-700 border-green-300';
+                    };
+                    
                     return (
-                      <div key={idx} className="flex items-center justify-between text-sm">
+                      <div key={idx} className="flex items-center justify-between p-2 bg-gray-50 rounded-lg">
                         <span className="text-sm font-medium text-gray-900">{displayLabel}</span>
-                        <span className={`text-xs font-medium ${
-                          isFull ? 'text-red-600' : 'text-green-600'
-                        }`}>
+                        <span className={`text-xs font-semibold px-2 py-1 rounded-md border ${getColorClass()}`}>
                           {accepted}/{needed} filled
                         </span>
                       </div>

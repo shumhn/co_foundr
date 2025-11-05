@@ -106,7 +106,7 @@ export default function DashboardPage() {
           {/* Projects Created */}
           <Link
             href={stats.projectsCreated > 0 ? '#my-projects' : '/projects/new'}
-            className="group bg-linear-to-br from-green-400 to-green-500 hover:from-green-500 hover:to-green-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
+            className="group bg-linear-to-br from-green-500 to-green-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="p-3 bg-white/20 rounded-xl">
@@ -123,7 +123,7 @@ export default function DashboardPage() {
           {/* Pending Reviews */}
           <Link
             href={stats.pendingReviews > 0 ? '#pending-requests' : '/requests'}
-            className="group bg-linear-to-br from-sky-400 to-sky-500 hover:from-sky-500 hover:to-sky-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
+            className="group bg-linear-to-br from-sky-500 to-sky-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="p-3 bg-white/20 rounded-xl">
@@ -140,7 +140,7 @@ export default function DashboardPage() {
           {/* Active Collaborations */}
           <Link
             href={stats.activeCollabs > 0 ? '#active-collabs' : '/projects'}
-            className="group bg-linear-to-br from-purple-400 to-purple-500 hover:from-purple-500 hover:to-purple-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
+            className="group bg-linear-to-br from-purple-500 to-purple-600 rounded-2xl shadow-sm hover:shadow-lg transition-all p-6"
           >
             <div className="flex items-start justify-between mb-3">
               <div className="p-3 bg-white/20 rounded-xl">

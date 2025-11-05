@@ -1,5 +1,5 @@
 // IPFS utility for uploading profile pictures and metadata
-// Using Pinata API for production-ready IPFS uploads
+// Uses Next.js API routes to proxy to Pinata (production-ready), with local fallback for dev
 
 interface IPFSMetadata {
   profile_picture?: string;
@@ -29,34 +29,50 @@ interface IPFSMetadata {
   };
 }
 
-// For demo purposes, we'll use a public IPFS gateway
-// In production, you'd use Pinata, Web3.Storage, or your own IPFS node
-const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+// Gateway used to render images/JSON by CID
+export const IPFS_GATEWAY = 'https://gateway.pinata.cloud/ipfs/';
+
+export const cidToUrl = (cid?: string) => (cid ? `${IPFS_GATEWAY}${cid}` : '');
 
 /**
  * Upload image to IPFS (simulated for MVP)
  * In production, integrate with Pinata, Web3.Storage, or NFT.Storage
  */
 export async function uploadImageToIPFS(file: File): Promise<string> {
-  // For MVP, we'll convert to base64 and store locally, return a short mock CID
-  // In production, use actual IPFS upload (Pinata/Web3.Storage)
+  // Try production route first (Pinata via serverless), fallback to local mock
+  try {
+    const form = new FormData();
+    form.append('file', file);
+    const res = await fetch('/api/ipfs/upload', { method: 'POST', body: form });
+    if (res.ok) {
+      const data = await res.json();
+      const cid: string = data.cid;
+      // Optional: cache a local preview for instant loads
+      try {
+        const reader = new FileReader();
+        const asBase64: string = await new Promise((resolve, reject) => {
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.onerror = reject;
+          reader.readAsDataURL(file);
+        });
+        localStorage.setItem(`ipfs_image_${cid}`, asBase64);
+      } catch {}
+      return cid;
+    }
+  } catch {}
+
+  // Fallback: local mock
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onloadend = async () => {
       const base64String = reader.result as string;
-      
-      // Generate a short, realistic mock IPFS CID (Qm... format, ~46 chars)
       const encoder = new TextEncoder();
       const data = encoder.encode(base64String.slice(0, 100) + file.name + Date.now());
       const hashBuffer = await crypto.subtle.digest('SHA-256', data as BufferSource);
       const hashArray = Array.from(new Uint8Array(hashBuffer));
       const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 44);
-      const mockCID = `Qm${hashHex}`; // Realistic IPFS CIDv0 format
-      
-      // Store actual image data locally for retrieval (not on-chain)
+      const mockCID = `Qm${hashHex}`;
       localStorage.setItem(`ipfs_image_${mockCID}`, base64String);
-      
-      console.log('Mock IPFS upload: returning CID', mockCID, '(', mockCID.length, 'chars)');
       resolve(mockCID);
     };
     reader.onerror = reject;
@@ -69,42 +85,51 @@ export async function uploadImageToIPFS(file: File): Promise<string> {
  * Returns IPFS hash of the metadata
  */
 export async function uploadMetadataToIPFS(metadata: IPFSMetadata): Promise<string> {
+  // Try production route first
   try {
-    // For MVP, we'll create a hash of the JSON
-    // In production, upload to IPFS and return actual hash
-    const jsonString = JSON.stringify(metadata);
-    const encoder = new TextEncoder();
-    const data = encoder.encode(jsonString);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data as BufferSource);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    
-    // Store in localStorage for MVP (in production, upload to IPFS)
-    localStorage.setItem(`ipfs_metadata_${hashHex}`, jsonString);
-    
-    return hashHex;
-  } catch (error) {
-    console.error('Error uploading metadata:', error);
-    throw error;
-  }
+    const res = await fetch('/api/ipfs/json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(metadata),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      const cid: string = data.cid;
+      try { localStorage.setItem(`ipfs_metadata_${cid}`, JSON.stringify(metadata)); } catch {}
+      return cid;
+    }
+  } catch {}
+
+  // Fallback to local hash storage
+  const jsonString = JSON.stringify(metadata);
+  const encoder = new TextEncoder();
+  const data = encoder.encode(jsonString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data as BufferSource);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  try { localStorage.setItem(`ipfs_metadata_${hashHex}`, jsonString); } catch {}
+  return hashHex;
 }
 
 /**
  * Fetch metadata from IPFS
  */
-export async function fetchMetadataFromIPFS(hash: string): Promise<IPFSMetadata | null> {
+export async function fetchMetadataFromIPFS(cidOrHash: string): Promise<IPFSMetadata | null> {
+  // Try local cache first
   try {
-    // For MVP, fetch from localStorage
-    // In production, fetch from IPFS gateway
-    const data = localStorage.getItem(`ipfs_metadata_${hash}`);
-    if (data) {
-      return JSON.parse(data);
+    const cached = localStorage.getItem(`ipfs_metadata_${cidOrHash}`);
+    if (cached) return JSON.parse(cached);
+  } catch {}
+  // Try gateway
+  try {
+    const res = await fetch(`${IPFS_GATEWAY}${cidOrHash}`, { cache: 'force-cache' });
+    if (res.ok) {
+      const json = await res.json();
+      try { localStorage.setItem(`ipfs_metadata_${cidOrHash}`, JSON.stringify(json)); } catch {}
+      return json;
     }
-    return null;
-  } catch (error) {
-    console.error('Error fetching metadata:', error);
-    return null;
-  }
+  } catch {}
+  return null;
 }
 
 /**
@@ -144,9 +169,6 @@ export function createDefaultMetadata(): IPFSMetadata {
  * Production IPFS upload function (placeholder)
  * To implement with actual Pinata/Web3.Storage
  */
-export async function uploadToProductionIPFS(file: File, apiKey: string): Promise<string> {
-  // This would implement actual Pinata/Web3.Storage upload
-  // For now, using mock implementation
-  console.log('Production IPFS upload would happen here with API key');
+export async function uploadToProductionIPFS(file: File, _apiKey: string): Promise<string> {
   return uploadImageToIPFS(file);
 }

@@ -4,6 +4,7 @@ import "./globals.css";
 import { WalletContextProvider } from "./providers/WalletProvider";
 import Navbar from "./components/Navbar";
 import Sidebar from './components/Sidebar';
+import Footer from './components/Footer';
 import RequestStatusMonitor from './components/RequestStatusMonitor';
 import ReceiverNotificationMonitor from './components/ReceiverNotificationMonitor';
 import { ThemeProvider } from './components/ThemeProvider';
@@ -20,7 +21,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Cofounder - Web3 Developer Collaboration",
+  title: "c0Foundr - Web3 Developer Collaboration",
   description: "A decentralized platform for developers to collaborate on projects using Solana blockchain",
 };
 
@@ -47,6 +48,7 @@ export default function RootLayout({
               <main className="min-h-screen">
                 {children}
               </main>
+              <Footer />
             </div>
           </ThemeProvider>
         </WalletContextProvider>
