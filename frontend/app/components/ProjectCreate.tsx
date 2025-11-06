@@ -391,10 +391,11 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
         if (roleRequirements.length > 0) {
           try {
             const roleReqs = roleRequirements.filter(r => r.needed > 0).map(r => {
-              // Map lowercase role to capitalized enum variant
-              const roleVariant = r.role.charAt(0).toUpperCase() + r.role.slice(1);
+              // Map to Anchor enum object format
+              const roleKey = r.role.toLowerCase();
+              const roleEnum = roleKey === 'devops' ? { devOps: {} } : { [roleKey]: {} };
               return {
-                role: roleVariant,
+                role: roleEnum,
                 needed: r.needed,
                 accepted: 0,
                 label: r.role === 'others' ? (r.label ?? null) : null,
@@ -435,7 +436,17 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             safeIntent,
             CollaborationLevel[collabLevel],
             ProjectStatus[status],
-            safeRoles.filter(r => r.needed > 0).map(r => ({ role: r.role.charAt(0).toUpperCase() + r.role.slice(1), needed: r.needed, accepted: 0, label: r.role === 'others' && r.label ? r.label : null }))
+            safeRoles.filter(r => r.needed > 0).map(r => {
+              // Map to Anchor enum object format
+              const roleKey = r.role.toLowerCase();
+              const roleEnum = roleKey === 'devops' ? { devOps: {} } : { [roleKey]: {} };
+              return {
+                role: roleEnum,
+                needed: r.needed,
+                accepted: 0,
+                label: r.role === 'others' && r.label ? r.label : null
+              };
+            })
           )
           .accounts({
             project: projectPDA,
