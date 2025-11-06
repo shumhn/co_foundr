@@ -245,17 +245,25 @@ export default function Home() {
                     
                     <div className="flex items-start gap-4 mb-4">
                       <div className="shrink-0">
-                        {f.profilePicture ? (
-                          <img 
-                            src={f.profilePicture} 
-                            alt={f.name || f.username}
-                            className="w-16 h-16 rounded-xl object-cover border-2 border-(--border) shadow-sm"
-                          />
-                        ) : (
-                          <div className="w-16 h-16 rounded-xl bg-(--surface-hover) border-2 border-(--border) flex items-center justify-center text-2xl">
-                            👤
-                          </div>
-                        )}
+                        {(() => {
+                          const src = f?.profilePicture;
+                          const valid = typeof src === 'string' && src.trim().length > 0;
+                          return valid ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img
+                              src={src}
+                              alt={f.name || f.username}
+                              className="w-16 h-16 rounded-xl object-cover border-2 border-(--border) shadow-sm"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <div className="w-16 h-16 rounded-xl bg-(--surface-hover) border-2 border-(--border) flex items-center justify-center text-2xl">
+                              👤
+                            </div>
+                          );
+                        })()}
                       </div>
                       <div className="flex-1 min-w-0">
                         <h3 className="text-base font-bold text-(--text-primary) truncate group-hover:text-[#00D4AA] transition-colors mb-1">
