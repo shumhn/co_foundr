@@ -296,13 +296,13 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
     const safeName = capLen(trimStr(name), 32);
     const safeDesc = capLen(trimStr(description), 1000);
     const safeGithub = capLen(trimStr(githubUrl), 100);
-    const safeIntent = capLen(trimStr(collabIntent), 300);
+    const safeIntent = trimStr(collabIntent) ? capLen(trimStr(collabIntent), 300) : '';
     const safeTech = dedupe(techStack.map(t => capLen(trimStr(t), 24))).slice(0, 12);
     const safeNeeds = dedupe(needs.map(t => capLen(trimStr(t), 24))).slice(0, 10);
     const safeRoles = roleRequirements.slice(0, 8).map((r) => ({
       role: r.role,
       needed: Math.max(0, Math.min(10, r.needed || 0)),
-      label: r.role === 'others' && r.label ? capLen(trimStr(r.label), 24) : undefined,
+      label: r.role === 'others' && r.label ? capLen(trimStr(r.label), 24) : null,
     }));
 
     // Validate at least one role
@@ -345,10 +345,11 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
         return;
       }
       // Upload logo to IPFS if provided
-      let logoHash = '';
+      let logoHash = null;
       if (logoFile) {
         console.log('Uploading logo to IPFS...');
-        logoHash = await uploadImageToIPFS(logoFile);
+        const uploadedHash = await uploadImageToIPFS(logoFile);
+        logoHash = uploadedHash || null;
       }
 
       let projectPDA: PublicKey;
