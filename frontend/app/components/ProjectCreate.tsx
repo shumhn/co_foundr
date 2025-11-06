@@ -391,14 +391,22 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
         if (roleRequirements.length > 0) {
           try {
             const roleReqs = roleRequirements.filter(r => r.needed > 0).map(r => {
-              // Map to Anchor enum object format
-              const roleKey = r.role.toLowerCase();
-              const roleEnum = roleKey === 'devops' ? { devOps: {} } : { [roleKey]: {} };
+              // Map to PascalCase enum variants matching IDL
+              const roleMapping: Record<string, string> = {
+                'frontend': 'Frontend',
+                'backend': 'Backend',
+                'fullstack': 'Fullstack',
+                'devops': 'DevOps',
+                'qa': 'QA',
+                'designer': 'Designer',
+                'others': 'Others'
+              };
+              const roleVariant = roleMapping[r.role.toLowerCase()] || 'Others';
               return {
-                role: roleEnum,
+                role: { [roleVariant]: {} },
                 needed: r.needed,
                 accepted: 0,
-                label: r.role === 'others' ? (r.label ?? null) : null,
+                label: (r.role === 'others' && r.label) ? r.label : null,
               };
             });
             await (program as any).methods.updateProjectRoles(roleReqs).accounts({ project: projectPDA, creator: publicKey }).rpc();
@@ -437,14 +445,22 @@ export default function ProjectCreate({ editMode = false, existingProject }: Pro
             CollaborationLevel[collabLevel],
             ProjectStatus[status],
             safeRoles.filter(r => r.needed > 0).map(r => {
-              // Map to Anchor enum object format
-              const roleKey = r.role.toLowerCase();
-              const roleEnum = roleKey === 'devops' ? { devOps: {} } : { [roleKey]: {} };
+              // Map lowercase role to PascalCase enum variant (matches IDL exactly)
+              const roleMapping: Record<string, string> = {
+                'frontend': 'Frontend',
+                'backend': 'Backend',
+                'fullstack': 'Fullstack',
+                'devops': 'DevOps',
+                'qa': 'QA',
+                'designer': 'Designer',
+                'others': 'Others'
+              };
+              const roleVariant = roleMapping[r.role.toLowerCase()] || 'Others';
               return {
-                role: roleEnum,
+                role: { [roleVariant]: {} },
                 needed: r.needed,
                 accepted: 0,
-                label: r.role === 'others' && r.label ? r.label : null
+                label: (r.role === 'others' && r.label) ? r.label : null
               };
             })
           )
