@@ -439,8 +439,8 @@ export default function EnhancedUserProfile() {
 
         <div className="relative px-4 pb-2">
           {/* Profile Picture */}
-          <div className="absolute -top-10 left-4">
-            <div className="w-20 h-20 rounded-full border-4 border-(--surface) bg-(--surface-hover) flex items-center justify-center overflow-hidden">
+          <div className="absolute -top-16 left-4">
+            <div className="w-32 h-32 rounded-full border-4 border-(--surface) bg-(--surface-hover) flex items-center justify-center overflow-hidden">
               {metadata?.profile_picture ? (
                 <img 
                   src={typeof window !== 'undefined' ? localStorage.getItem(`ipfs_image_${metadata.profile_picture}`) || '' : ''} 
@@ -448,12 +448,12 @@ export default function EnhancedUserProfile() {
                   className="w-full h-full object-cover" 
                 />
               ) : (
-                <span className="text-3xl text-(--text-muted)">?</span>
+                <span className="text-5xl text-(--text-muted)">?</span>
               )}
             </div>
           </div>
 
-          <div className="pt-12">
+          <div className="pt-20">
             <div className="flex justify-between items-start mb-2">
               <div>
                 <h2 className={`${display.className} text-xl font-bold text-(--text-primary) mb-0.5`}>
