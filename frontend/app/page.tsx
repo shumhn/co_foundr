@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { Space_Grotesk, Sora } from 'next/font/google';
+import { Space_Grotesk, Outfit } from 'next/font/google';
 
 const display = Space_Grotesk({ subsets: ['latin'], weight: ['700'] });
-const premium = Sora({ subsets: ['latin'], weight: ['400','600'] });
+const bodyFont = Outfit({ subsets: ['latin'], weight: ['400', '500', '600'] });
+
 import { useAnchorProgram, getUserPDA } from './hooks/useAnchorProgram';
 import { PublicKey } from '@solana/web3.js';
 import ShowcaseCard from './components/ShowcaseCard';
@@ -36,24 +37,20 @@ export default function Home() {
   useEffect(() => {
     const load = async () => {
       if (!program) {
-        // No wallet connected - show mock data immediately
         setLoading(false);
         return;
       }
-      if (loadedRef.current) return; // prevent double-fetch in React strict/dev
+      if (loadedRef.current) return;
       loadedRef.current = true;
       setLoading(true);
       try {
-        // Try cache first for instant paint
         const cachedProjects = getCache<any[]>('showcase_projects');
         if (cachedProjects) {
           const restored: ProjectItem[] = cachedProjects.map((p: any) => ({ publicKey: new PublicKey(p.pubkey), account: p.account }));
           setProjects(restored);
         }
 
-        // Fetch with retry
         const all = (await rpcWithRetry(() => (program as any).account.project.all())) as any[];
-        // Sort by timestamp descending (newest first)
         all.sort((a: any, b: any) => (b.account.timestamp?.toNumber() || 0) - (a.account.timestamp?.toNumber() || 0));
         setProjects(all as unknown as ProjectItem[]);
         try {
@@ -61,11 +58,8 @@ export default function Home() {
           setCache('showcase_projects', toCache, 60_000);
         } catch {}
 
-        // Derive founders from projects
         const creatorSet: string[] = Array.from(new Set((all as any[]).map((p: any) => p.account.creator.toString()))) as string[];
-        // Fetch user accounts in batch
         const pdas = creatorSet.map((w: string) => getUserPDA(new PublicKey(w))[0]);
-        // Use cache if present
         const cachedFounders = getCache<FounderItem[]>('showcase_founders');
         if (cachedFounders) {
           setFounders(cachedFounders);
@@ -89,14 +83,12 @@ export default function Home() {
           const projectsCount = (all as any[]).filter((p: any) => p.account.creator.toString() === w).length;
           return { wallet: w, username, displayName, bio, projects: projectsCount };
         });
-        // Sort founders by #projects desc
         list.sort((a, b) => b.projects - a.projects);
         setFounders(list);
         try {
           setCache('showcase_founders', list, 60_000);
         } catch {}
       } catch (e) {
-        // eslint-disable-next-line no-console
         console.error('Showcase load error', e);
       } finally {
         setLoading(false);
@@ -110,141 +102,131 @@ export default function Home() {
   const displayFounders = founders.length > 0 ? founders.slice(0, 3) : mockFounders.slice(0, 3);
 
   return (
-    <div className="min-h-screen bg-(--background)">
-      <main className="max-w-7xl mx-auto px-4 py-10 bg-(--background)">
-        {/* Hero */}
-        <section className="mb-20 pt-16">
-          <div className="max-w-5xl mx-auto text-center">
-            <div className="mb-5 flex items-center justify-center gap-3 flex-wrap">
-              <span className="text-(--text-secondary) text-sm font-medium uppercase tracking-wider">Solana Developer Collaboration Platform</span>
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-500/20 border border-amber-500/40 text-amber-400 text-[10px] font-bold uppercase tracking-wide">
-                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></span>
-                Devnet
-              </span>
-            </div>
-            <h1 className={`${display.className} text-6xl md:text-7xl font-black mb-6 leading-[0.95] uppercase tracking-wide`} aria-label="Build the next killer project">
-              <span className="text-(--text-primary) block animate-reveal-up mb-4" style={{ ['--delay' as any]: '0ms' }}>BUILD THE NEXT</span>
-              <span className="block animate-reveal-up" style={{ ['--delay' as any]: '200ms' }}>
-                <span className="headline-shimmer">KILLER PROJECT</span>
-              </span>
-            </h1>
-            <p className={`${premium.className} text-xl md:text-2xl font-semibold text-(--text-secondary) mb-10 animate-reveal-up`} style={{ ['--delay' as any]: '400ms' }}>
-              Find your co‑builder. Ship on Solana.
-            </p>
-            <p className={`${premium.className} text-(--text-secondary) text-lg font-medium mb-12 max-w-2xl mx-auto leading-relaxed`}>
-              Connect with talented Web3 developers, form teams, and collaborate on projects built on Solana. c0Foundr helps you find the right people to bring your ideas to life.
-            </p>
-            <div className="flex justify-center gap-4">
-              <Link href="/projects/new" className={`px-8 py-4 bg-[#00D4AA] hover:bg-[#00B894] text-black font-black text-lg rounded-lg transition-all shadow-lg hover:shadow-xl ${premium.className}`}>
-                Start Building
-              </Link>
-              <Link href="/founders" className="px-8 py-4 bg-(--surface-hover) hover:bg-(--surface) text-(--text-primary) font-bold rounded-lg transition-all">
-                Find Teammates
-              </Link>
-            </div>
+    <div className={`min-h-screen bg-(--background) ${bodyFont.className} overflow-hidden`}>
+      {/* Decorative blobs */}
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-blue-500/10 rounded-full blur-[120px] -z-10" />
+      <div className="fixed bottom-0 right-0 w-[800px] h-[600px] bg-purple-500/10 rounded-full blur-[120px] -z-10" />
+
+      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+        {/* Hero Section */}
+        <section className="mb-32 pt-20 text-center relative">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[300px] bg-gradient-to-r from-cyan-500/20 to-blue-500/20 blur-[100px] rounded-full -z-10" />
+          
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass mb-8 animate-float">
+            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-sm font-medium text-green-400 tracking-wide uppercase">Live on Solana Devnet</span>
+          </div>
+
+          <h1 className={`${display.className} text-7xl md:text-8xl font-bold mb-8 leading-tight tracking-tight`}>
+            <span className="block text-gradient">Build the Next</span>
+            <span className="block text-gradient-primary">Killer Project</span>
+          </h1>
+
+          <p className="text-xl md:text-2xl text-(--text-secondary) mb-12 max-w-2xl mx-auto leading-relaxed font-light">
+            Connect with elite Web3 developers, form dream teams, and ship scalable dApps on Solana.
+          </p>
+
+          <div className="flex flex-col sm:flex-row justify-center gap-6">
+            <Link 
+              href="/projects/new" 
+              className="group relative px-8 py-4 bg-(--primary) hover:bg-(--primary-hover) text-black font-bold text-lg rounded-xl transition-all hover:scale-105 hover:shadow-[0_0_40px_-10px_var(--primary)]"
+            >
+              Start Building
+              <div className="absolute inset-0 rounded-xl ring-2 ring-white/20 group-hover:ring-white/40 transition-all" />
+            </Link>
+            <Link 
+              href="/founders" 
+              className="px-8 py-4 glass hover:bg-(--surface-hover) text-(--text-primary) font-bold text-lg rounded-xl transition-all hover:scale-105 border border-white/10"
+            >
+              Find Teammates
+            </Link>
           </div>
         </section>
 
         {/* Featured Projects */}
-        <section className="mb-16">
-          <div className="text-center mb-8">
-            <h2 className={`${premium.className} text-3xl font-bold text-(--text-primary) uppercase tracking-tight`}>Featured Projects</h2>
-            <p className="text-(--text-muted) text-sm mt-1">Exceptional work from the community</p>
-            <Link href="/projects" className="inline-flex items-center gap-1 text-sm text-(--text-primary) hover:text-[#00D4AA] font-semibold transition-colors uppercase tracking-wide mt-2">
-              View all
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+        <section className="mb-32">
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <h2 className={`${display.className} text-4xl font-bold text-(--text-primary) mb-2`}>Featured Projects</h2>
+              <p className="text-(--text-secondary) text-lg">Exceptional work from the community</p>
+            </div>
+            <Link href="/projects" className="group flex items-center gap-2 text-(--primary) font-semibold hover:text-(--primary-hover) transition-colors">
+              View all 
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
             </Link>
           </div>
+
           {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-32 rounded-2xl glass animate-pulse" />
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-[400px] rounded-3xl glass animate-pulse" />
               ))}
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {displayProjects.map((p: any) => {
                 const isMock = !p.publicKey;
-                if (isMock) {
-                  // Mock project
-                  return (
-                    <ShowcaseCard
-                      key={p.id}
-                      href={p.projectUrl || '#'}
-                      name={p.name}
-                      tagline={p.tagline}
-                      description={p.description}
-                      logoUrl={p.logoUrl}
-                      techStack={p.techStack}
-                    />
-                  );
-                } else {
-                  // Real project
-                  const logoHash = p.account.logoHash || p.account.logo_hash || null;
-                  const logoUrl = logoHash ? `https://ipfs.io/ipfs/${logoHash}` : null;
-                  const rawTech = p.account.techStack || p.account.tech_stack || [];
-                  const tech = (rawTech as any[]).map((t: any) => typeof t === 'string' ? t : (t?.value ?? '')).filter(Boolean);
-                  const rawName = p.account.name;
-                  const name = typeof rawName === 'string' ? rawName : (rawName?.value ?? '');
-                  const rawDesc = p.account.description;
-                  const description = typeof rawDesc === 'string' ? rawDesc : (rawDesc?.value ?? '');
-                  const rawTag = p.account.collabIntent || p.account.collab_intent;
-                  const tagline = typeof rawTag === 'string' ? rawTag : (rawTag?.value ?? '');
-                  return (
-                    <ShowcaseCard
-                      key={p.publicKey.toString()}
-                      href={`/projects/${p.publicKey.toString()}`}
-                      name={name}
-                      tagline={tagline}
-                      description={description}
-                      logoUrl={logoUrl}
-                      techStack={tech}
-                    />
-                  );
-                }
+                const props = isMock ? {
+                  href: p.projectUrl || '#',
+                  name: p.name,
+                  tagline: p.tagline,
+                  description: p.description,
+                  logoUrl: p.logoUrl,
+                  techStack: p.techStack
+                } : {
+                  href: `/projects/${p.publicKey.toString()}`,
+                  name: typeof p.account.name === 'string' ? p.account.name : (p.account.name?.value ?? ''),
+                  tagline: typeof (p.account.collabIntent || p.account.collab_intent) === 'string' ? (p.account.collabIntent || p.account.collab_intent) : ((p.account.collabIntent || p.account.collab_intent)?.value ?? ''),
+                  description: typeof p.account.description === 'string' ? p.account.description : (p.account.description?.value ?? ''),
+                  logoUrl: (p.account.logoHash || p.account.logo_hash) ? `https://ipfs.io/ipfs/${p.account.logoHash || p.account.logo_hash}` : null,
+                  techStack: (p.account.techStack || p.account.tech_stack || []).map((t: any) => typeof t === 'string' ? t : (t?.value ?? '')).filter(Boolean)
+                };
+
+                return (
+                  <div key={isMock ? p.id : p.publicKey.toString()} className="group">
+                    <ShowcaseCard {...props} />
+                  </div>
+                );
               })}
             </div>
           )}
         </section>
 
         {/* Founders Spotlight */}
-        <section className="mb-16">
-          <div className="text-center mb-8">
-            <h2 className={`${premium.className} text-3xl font-bold text-(--text-primary) uppercase tracking-tight`}>Founders</h2>
-            <p className="text-(--text-muted) text-sm mt-1">The builders behind the projects</p>
-            <Link href="/founders" className="inline-flex items-center gap-1 text-sm text-(--text-primary) hover:text-[#00D4AA] font-semibold transition-colors uppercase tracking-wide mt-2">
-              View all
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+        <section className="mb-20">
+          <div className="flex items-end justify-between mb-12">
+            <div>
+              <h2 className={`${display.className} text-4xl font-bold text-(--text-primary) mb-2`}>Top Builders</h2>
+              <p className="text-(--text-secondary) text-lg">The minds behind the code</p>
+            </div>
+            <Link href="/founders" className="group flex items-center gap-2 text-(--primary) font-semibold hover:text-(--primary-hover) transition-colors">
+              View all 
+              <span className="group-hover:translate-x-1 transition-transform">→</span>
             </Link>
           </div>
-          {loading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="h-28 rounded-2xl glass animate-pulse" />
-              ))}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              {displayFounders.slice(0, 6).map((f: any) => {
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {loading ? (
+              Array.from({ length: 3 }).map((_, i) => (
+                <div key={i} className="h-32 rounded-2xl glass animate-pulse" />
+              ))
+            ) : (
+              displayFounders.slice(0, 6).map((f: any) => {
                 const isMock = !f.wallet || f.wallet.match(/^[1-9]{32}$/);
                 const href = isMock ? (f.socialLink || '#') : `/profile?wallet=${f.wallet}`;
+                
                 return (
                   <Link
                     key={f.wallet || f.username}
                     href={href}
                     target={isMock && f.socialLink ? '_blank' : undefined}
                     rel={isMock && f.socialLink ? 'noopener noreferrer' : undefined}
-                    className="group block relative bg-(--surface) rounded-2xl border border-(--border) hover:border-[#00D4AA] shadow-sm hover:shadow-xl transition-all duration-300 p-6 overflow-hidden"
+                    className="glass-card p-6 rounded-2xl block group relative overflow-hidden"
                   >
-                    {/* Top gradient bar */}
-                    <div className="absolute top-0 left-0 right-0 h-1 bg-linear-to-r from-[#00D4AA] to-[#00B894]" />
+                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
                     
-                    <div className="flex items-start gap-4 mb-4">
-                      <div className="shrink-0">
+                    <div className="flex items-center gap-4">
+                      <div className="relative">
                         {(() => {
                           const src = f?.profilePicture;
                           const valid = typeof src === 'string' && src.trim().length > 0;
@@ -253,51 +235,45 @@ export default function Home() {
                             <img
                               src={src}
                               alt={f.name || f.username}
-                              className="w-16 h-16 rounded-xl object-cover border-2 border-(--border) shadow-sm"
+                              className="w-16 h-16 rounded-full object-cover border-2 border-white/10 group-hover:border-(--primary) transition-colors"
                               onError={(e) => {
                                 (e.target as HTMLImageElement).style.display = 'none';
                               }}
                             />
                           ) : (
-                            <div className="w-16 h-16 rounded-xl bg-(--surface-hover) border-2 border-(--border) flex items-center justify-center text-2xl">
+                            <div className="w-16 h-16 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 border-2 border-white/10 flex items-center justify-center text-2xl group-hover:border-(--primary) transition-colors">
                               👤
                             </div>
                           );
                         })()}
+                        <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-(--surface) rounded-full flex items-center justify-center border border-white/10">
+                          <span className="text-[10px]">🚀</span>
+                        </div>
                       </div>
+                      
                       <div className="flex-1 min-w-0">
-                        <h3 className="text-base font-bold text-(--text-primary) truncate group-hover:text-[#00D4AA] transition-colors mb-1">
+                        <h3 className="text-lg font-bold text-(--text-primary) truncate group-hover:text-(--primary) transition-colors">
                           {f.name || f.displayName || f.username}
                         </h3>
-                        <p className="text-sm text-(--text-secondary) font-medium">@{f.username}</p>
+                        <p className="text-sm text-(--text-secondary) font-medium mb-1">@{f.username}</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-white/5 text-(--text-muted) border border-white/5">
+                            {f.projects} {f.projects === 1 ? 'Project' : 'Projects'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
-                    
-                    {f.bio && (
-                      <p className="text-sm text-(--text-secondary) line-clamp-2 leading-relaxed mb-4">
-                        {f.bio}
-                      </p>
-                    )}
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="inline-flex items-center px-3 py-1.5 rounded-lg text-xs font-semibold bg-(--surface-hover) text-(--text-primary) border border-(--border)">
-                        {f.projects} {f.projects === 1 ? 'project' : 'projects'}
-                      </span>
-                    </div>
 
-                    {/* Hover arrow */}
-                    <div className="absolute bottom-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <div className="w-7 h-7 rounded-full bg-[#00D4AA] flex items-center justify-center">
-                        <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-(--primary) group-hover:text-black transition-all">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                         </svg>
                       </div>
                     </div>
                   </Link>
                 );
-              })}
-            </div>
-          )}
+              })
+            )}
+          </div>
         </section>
       </main>
     </div>
