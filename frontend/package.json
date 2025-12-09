@@ -19,6 +19,7 @@
     "@web3-storage/w3up-client": "^17.3.0",
     "axios": "^1.13.1",
     "buffer": "^6.0.3",
+    "framer-motion": "^12.23.25",
     "ipfs-http-client": "^60.0.1",
     "multiformats": "^13.4.1",
     "next": "16.0.1",
