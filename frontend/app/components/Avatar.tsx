@@ -96,8 +96,12 @@ export default function Avatar({
     }
 
     // Try Pinata gateway
-    const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
-    setImageSrc(gatewayUrl);
+    if (ipfsHash.startsWith('http') || ipfsHash.startsWith('data:')) {
+      setImageSrc(ipfsHash);
+    } else {
+      const gatewayUrl = `https://gateway.pinata.cloud/ipfs/${ipfsHash}`;
+      setImageSrc(gatewayUrl);
+    }
   }, [ipfsHash]);
 
   const handleImageError = () => {
