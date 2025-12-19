@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Space_Grotesk, Outfit } from 'next/font/google';
+import { motion, AnimatePresence } from 'framer-motion';
 
 const display = Space_Grotesk({ subsets: ['latin'], weight: ['700'] });
 const bodyFont = Outfit({ subsets: ['latin'], weight: ['400', '500', '600'] });
@@ -115,94 +116,135 @@ export default function Home() {
   const displayFounders = founders.length > 0 ? founders.slice(0, 3) : mockFounders.slice(0, 3);
 
   return (
-    <div className={`min-h-screen bg-[#030712] ${bodyFont.className} overflow-x-hidden selection:bg-[#00D4AA] selection:text-black`}>
-      {/* Dynamic Background */}
-      <div className="fixed inset-0 z-0">
-        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-20" />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#030712] via-transparent to-transparent" />
+    <div className={`min-h-screen bg-[#09090b] ${bodyFont.className} overflow-x-hidden selection:bg-teal-500/30 selection:text-white`}>
+      {/* Precision Background */}
+      <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none">
+        <div className="absolute inset-0 bg-[url('/grid.svg')] opacity-[0.03]" />
 
-        {/* Animated Aurora */}
-        <div className="absolute -top-[50%] -left-[50%] w-[200%] h-[200%] animate-[aurora-move_20s_linear_infinite] opacity-30 blur-[100px] mix-blend-screen bg-[conic-gradient(from_0deg,transparent_0deg,var(--primary)_60deg,var(--secondary)_120deg,transparent_180deg)]" />
-
-        {/* Floating Orbs */}
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/20 rounded-full blur-[128px] animate-float-y delay-1000" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-[#00D4AA]/20 rounded-full blur-[128px] animate-float-y delay-75" />
+        {/* Subtle Ambient Glows */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-indigo-500/5 rounded-full blur-[120px]" />
+        <div className="absolute bottom-[20%] right-[-5%] w-[30%] h-[30%] bg-teal-500/5 rounded-full blur-[100px]" />
       </div>
 
-      <main className="max-w-7xl mx-auto px-6 py-12 relative z-10">
+      <main className="max-w-7xl mx-auto px-8 relative z-10 pt-24">
         {/* Hero Section */}
-        <section className="mb-32 pt-32 text-center relative perspective-[1000px]">
-
-          <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full border border-[var(--primary)]/30 bg-[var(--primary)]/10 mb-12 backdrop-blur-md animate-pulse-neon">
-            <span className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[var(--primary)] opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-[var(--primary)]"></span>
+        <motion.section
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, ease: "easeOut" }}
+          className="mb-24 text-center relative"
+        >
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.2 }}
+            className="inline-flex items-center gap-2.5 px-3 py-1.5 rounded-full border border-teal-500/10 bg-teal-500/5 mb-8"
+          >
+            <div className="w-1.5 h-1.5 rounded-full bg-teal-500 animate-pulse" />
+            <span className="text-xs font-bold text-teal-500/80 tracking-[0.2em] uppercase font-mono">
+              Solana Devnet
             </span>
-            <span className="text-sm font-bold text-[var(--primary)] tracking-widest uppercase font-mono">System Online: Solana Devnet</span>
-          </div>
+          </motion.div>
 
-          <h1 className={`${display.className} text-7xl md:text-[8rem] font-black mb-12 leading-none tracking-tighter mix-blend-lighten`}>
-            <span className="block hover:scale-[1.02] transition-transform duration-300">
-              <GlitchText text="BUILD THE" />
+          <motion.h1
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
+            className={`${display.className} text-6xl md:text-7xl font-bold mb-10 leading-[1.1] tracking-tight max-w-5xl mx-auto`}
+          >
+            The Premier Network for
+            <span className="block text-teal-500">
+              Solana's Most Ambitious Founders.
             </span>
-            <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] drop-shadow-[0_0_30px_rgba(0,212,170,0.5)]">
-              <GlitchText text="IMPOSSIBLE" className="animate-pulse" />
-            </span>
-          </h1>
+          </motion.h1>
 
-          <p className="text-xl md:text-3xl text-gray-400 mb-16 max-w-3xl mx-auto leading-relaxed font-light border-l-4 border-[var(--primary)] pl-6 text-left">
-            Construct decentralized realities. Unite with elite architects. <span className="text-white font-bold">Ship software that eats the world.</span>
-          </p>
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5, duration: 1 }}
+            className="text-xl md:text-2xl text-zinc-400 mb-12 max-w-3xl mx-auto leading-relaxed font-normal"
+          >
+            Find your co-founder, share your vision, and scale your protocol on Solana. No fluff, just code.
+          </motion.p>
 
-          <div className="flex flex-col sm:flex-row justify-center gap-8">
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.7 }}
+            className="flex flex-col sm:flex-row justify-center gap-4"
+          >
             <Link
               href="/projects/new"
-              className="group relative px-10 py-5 bg-[var(--primary)] text-black font-black text-xl rounded-sm skew-x-[-10deg] hover:skew-x-0 transition-all hover:scale-110 hover:shadow-[0_0_60px_-15px_var(--primary)]"
+              className="px-8 py-3.5 bg-zinc-50 text-zinc-950 font-bold text-sm rounded-lg hover:bg-white transition-all hover:scale-[1.05] active:scale-95 shadow-lg shadow-white/10"
             >
-              <span className="block skew-x-[10deg] group-hover:skew-x-0">INITIALIZE PROJECT_</span>
-              <div className="absolute inset-0 bg-white/40 opacity-0 group-hover:opacity-100 transition-opacity mix-blend-overlay" />
+              Initialize Project
             </Link>
-
             <Link
               href="/founders"
-              className="group px-10 py-5 border border-[var(--primary)] text-[var(--primary)] font-bold text-xl rounded-sm skew-x-[-10deg] hover:skew-x-0 hover:bg-[var(--primary)]/10 transition-all hover:scale-105 backdrop-blur-sm"
+              className="px-8 py-3.5 bg-transparent text-zinc-100 font-bold text-sm rounded-lg border border-zinc-800 hover:border-zinc-700 hover:bg-zinc-900/50 transition-all active:scale-95"
             >
-              <span className="block skew-x-[10deg] group-hover:skew-x-0 tracking-widest">LOCATE_ALLIES //</span>
+              Locate Allies
             </Link>
-          </div>
-        </section>
+          </motion.div>
+        </motion.section>
 
-        {/* Tech Marquee */}
-        <section className="mb-40 overflow-hidden relative">
-          <div className="absolute inset-y-0 left-0 w-32 bg-gradient-to-r from-[#030712] to-transparent z-20" />
-          <div className="absolute inset-y-0 right-0 w-32 bg-gradient-to-l from-[#030712] to-transparent z-20" />
-
-          <div className="flex gap-16 animate-[aurora-move_20s_linear_infinite] w-max opacity-50 grayscale hover:grayscale-0 transition-all duration-500">
-            {['SOLANA', 'RUST', 'REACT', 'IPFS', 'ANCHOR', 'NEXT.JS', 'TYPESCRIPT', 'TAILWIND', 'SOLANA', 'RUST'].map((tech, i) => (
-              <span key={i} className={`${display.className} text-6xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/10`}>
-                {tech}
-              </span>
+        {/* Tech Marquee / Stats Bar */}
+        <motion.section
+          initial={{ opacity: 0 }}
+          whileInView={{ opacity: 1 }}
+          viewport={{ once: true }}
+          className="mb-24 border-y border-zinc-900 py-10 relative overflow-hidden backdrop-blur-[2px]"
+        >
+          <div className="flex justify-around items-center gap-12 text-zinc-500 select-none">
+            {['Solana', 'Rust', 'Anchor', 'IPFS', 'Next.js', 'TypeScript'].map((tech, i) => (
+              <motion.div
+                key={i}
+                initial={{ opacity: 0, y: 10 }}
+                whileInView={{ opacity: 0.5, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: i * 0.1 }}
+                className="flex items-center gap-3 grayscale hover:grayscale-0 hover:opacity-100 transition-all cursor-default scale-110"
+              >
+                <span className="text-xl font-bold tracking-tighter uppercase font-mono">{tech}</span>
+              </motion.div>
             ))}
           </div>
-        </section>
+        </motion.section>
 
         {/* Featured Projects */}
-        <section className="mb-40">
-          <div className="flex items-end justify-between mb-16 border-b border-gray-800 pb-4">
-            <div>
-              <h2 className={`${display.className} text-5xl font-black text-white mb-2 tracking-tighter`}>
-                <span className="text-[var(--primary)]">//</span> FEATURED_PROJECTS
+        <motion.section
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+          className="mb-24"
+        >
+          <div className="flex items-end justify-between mb-10">
+            <motion.div variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}>
+              <p className="text-[13px] font-bold text-teal-500 tracking-[0.2em] uppercase mb-2">Curated Gallery</p>
+              <h2 className={`${display.className} text-4xl font-bold text-white tracking-tight`}>
+                Latest Projects
               </h2>
-            </div>
-            <Link href="/projects" className="font-mono text-[var(--primary)] hover:text-white transition-colors tracking-widest">
-              VIEW_DATABASE [→]
-            </Link>
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, x: 20 }, show: { opacity: 1, x: 0 } }}>
+              <Link href="/projects" className="text-base font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-2 group">
+                View Database <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </Link>
+            </motion.div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 perspective-[2000px]">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="h-[400px] rounded-3xl bg-[var(--surface)] animate-pulse border border-[var(--border)]" />
+                <div key={i} className="h-64 rounded-2xl bg-zinc-900 animate-pulse border border-zinc-800" />
               ))
             ) : (
               displayProjects.map((p: any, i) => {
@@ -225,44 +267,62 @@ export default function Home() {
                 };
 
                 return (
-                  <div key={isMock ? p.id : p.publicKey.toString()} className="group">
-                    <NeonCard>
-                      <ShowcaseCard {...cardProps} />
-                    </NeonCard>
-                  </div>
+                  <motion.div
+                    key={isMock ? p.id : p.publicKey.toString()}
+                    variants={{
+                      hidden: { opacity: 0, y: 20 },
+                      show: { opacity: 1, y: 0 }
+                    }}
+                    whileHover={{ y: -5 }}
+                    transition={{ type: "spring", stiffness: 300 }}
+                  >
+                    <div className="relative group">
+                      <div className="border-beam opacity-0 group-hover:opacity-100 transition-opacity" />
+                      <NeonCard>
+                        <ShowcaseCard {...cardProps} />
+                      </NeonCard>
+                    </div>
+                  </motion.div>
                 );
               })
             )}
           </div>
-        </section>
+        </motion.section>
 
         {/* Founders Spotlight */}
-        <section className="mb-20">
-          <div className="flex items-end justify-between mb-16 border-b border-gray-800 pb-4">
-            <div>
-              <h2 className={`${display.className} text-5xl font-black text-white mb-2 tracking-tighter`}>
-                <span className="text-[#6366f1]">//</span> TOP_BUILDERS
+        <motion.section
+          initial="hidden"
+          whileInView="show"
+          viewport={{ once: true, margin: "-100px" }}
+          variants={{
+            hidden: { opacity: 0 },
+            show: {
+              opacity: 1,
+              transition: {
+                staggerChildren: 0.1
+              }
+            }
+          }}
+          className="mb-32"
+        >
+          <div className="flex items-end justify-between mb-10">
+            <motion.div variants={{ hidden: { opacity: 0, x: -20 }, show: { opacity: 1, x: 0 } }}>
+              <p className="text-[13px] font-bold text-indigo-500 tracking-[0.2em] uppercase mb-2">Verified Founders</p>
+              <h2 className={`${display.className} text-4xl font-bold text-white tracking-tight`}>
+                Top Builders
               </h2>
-            </div>
-            <Link href="/founders" className="font-mono text-[#6366f1] hover:text-white transition-colors tracking-widest">
-              ACCESS_DIRECTORY [→]
-            </Link>
+            </motion.div>
+            <motion.div variants={{ hidden: { opacity: 0, x: 20 }, show: { opacity: 1, x: 0 } }}>
+              <Link href="/founders" className="text-base font-bold text-zinc-400 hover:text-white transition-colors flex items-center gap-2 group">
+                Access Directory <span className="group-hover:translate-x-1 transition-transform">→</span>
+              </Link>
+            </motion.div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {loading ? (
               Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="glass-card p-6 rounded-2xl animate-pulse">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-full bg-white/10" />
-                    <div className="flex-1">
-                      <div className="h-5 bg-white/10 rounded w-3/4 mb-2" />
-                      <div className="h-4 bg-white/10 rounded w-1/2 mb-2" />
-                      <div className="h-5 bg-white/10 rounded-full w-20" />
-                    </div>
-                    <div className="w-8 h-8 rounded-full bg-white/10" />
-                  </div>
-                </div>
+                <div key={i} className="h-24 rounded-2xl bg-zinc-900 animate-pulse border border-zinc-800" />
               ))
             ) : (
               displayFounders.slice(0, 6).map((f: any) => {
@@ -270,53 +330,65 @@ export default function Home() {
                 const href = isMock ? (f.socialLink || '#') : `/profile?wallet=${f.wallet}`;
 
                 return (
-                  <Link
+                  <motion.div
                     key={f.wallet || f.username}
-                    href={href}
-                    target={isMock && f.socialLink ? '_blank' : undefined}
-                    rel={isMock && f.socialLink ? 'noopener noreferrer' : undefined}
-                    className="group relative block"
+                    variants={{
+                      hidden: { opacity: 0, scale: 0.95 },
+                      show: { opacity: 1, scale: 1 }
+                    }}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
                   >
-                    <div className="absolute inset-0 bg-gradient-to-r from-[var(--primary)] to-[var(--secondary)] rounded-2xl opacity-0 group-hover:opacity-100 blur transition-opacity duration-300" />
-                    <div className="relative bg-[#0f172a] p-6 rounded-2xl border border-white/5 hover:border-transparent transition-colors">
-                      <div className="flex items-center gap-4">
-                        <Avatar
-                          ipfsHash={f.profilePicture || f.ipfsMetadataHash}
-                          name={f.displayName || f.username}
-                          wallet={f.wallet}
-                          size="lg"
-                          className="shrink-0 ring-2 ring-white/10 group-hover:ring-[var(--primary)] transition-all"
-                        />
+                    <Link
+                      href={href}
+                      target={isMock && f.socialLink ? '_blank' : undefined}
+                      rel={isMock && f.socialLink ? 'noopener noreferrer' : undefined}
+                      className="group relative block"
+                    >
+                      <div className="relative bg-zinc-900/50 backdrop-blur-sm border border-zinc-800 p-6 rounded-2xl hover:border-zinc-700 transition-all shadow-sm shadow-black/20">
+                        <div className="border-beam opacity-0 group-hover:opacity-100 transition-opacity" />
+                        <div className="flex items-center gap-4">
+                          <Avatar
+                            ipfsHash={f.profilePicture || f.ipfsMetadataHash}
+                            name={f.displayName || f.username}
+                            wallet={f.wallet}
+                            size="lg"
+                            className="shrink-0 ring-1 ring-zinc-800 group-hover:ring-teal-500/50 transition-all"
+                          />
 
-                        <div className="flex-1 min-w-0">
-                          <h3 className="font-bold text-lg text-white group-hover:text-[var(--primary)] truncate transition-colors font-mono">
-                            {f.displayName || f.username}
-                          </h3>
-                          <p className="text-sm text-gray-400 truncate">@{f.username}</p>
-                          <div className="flex gap-2 mt-2">
-                            {f.role && (
-                              <span className="text-[10px] uppercase tracking-wider bg-white/5 px-2 py-0.5 rounded text-gray-300 border border-white/5">
-                                {f.role}
+                          <div className="flex-1 min-w-0">
+                            <h3 className="font-bold text-xl text-zinc-100 group-hover:text-teal-400 truncate transition-colors font-mono">
+                              {f.displayName || f.username}
+                            </h3>
+                            <p className="text-[13px] text-zinc-500 truncate mt-0.5">@{f.username}</p>
+                            <div className="flex gap-2 mt-2">
+                              {f.role && (
+                                <span className="text-[13px] uppercase tracking-wider bg-zinc-800 px-2 py-0.5 rounded text-zinc-400 border border-zinc-700">
+                                  {f.role}
+                                </span>
+                              )}
+                              <span className="text-[13px] uppercase tracking-wider bg-teal-500/10 px-2 py-0.5 rounded text-teal-500 border border-teal-500/20">
+                                {f.projects} Projects
                               </span>
-                            )}
-                            <span className="text-[10px] uppercase tracking-wider bg-[var(--primary)]/10 px-2 py-0.5 rounded text-[var(--primary)] border border-[var(--primary)]/20">
-                              {f.projects} PROJ
-                            </span>
+                            </div>
+                          </div>
+
+                          <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:bg-zinc-700 group-hover:text-zinc-300 transition-all opacity-0 group-hover:opacity-100">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M9 5l7 7-7 7" />
+                            </svg>
                           </div>
                         </div>
-
-                        <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[var(--primary)] group-hover:text-black transition-all">
-                          →
-                        </div>
                       </div>
-                    </div>
-                  </Link>
+                    </Link>
+                  </motion.div>
                 );
               })
             )}
           </div>
-        </section>
+        </motion.section>
       </main>
     </div>
   );
 }
+

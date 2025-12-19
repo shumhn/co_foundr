@@ -22,8 +22,8 @@ export default function NeonCard({ children, className = '' }: NeonCardProps) {
         const centerX = rect.width / 2;
         const centerY = rect.height / 2;
 
-        const rotateX = ((y - centerY) / centerY) * -10; // Max 10 deg rotation X
-        const rotateY = ((x - centerX) / centerX) * 10;  // Max 10 deg rotation Y
+        const rotateX = ((y - centerY) / centerY) * -5;
+        const rotateY = ((x - centerX) / centerX) * 5;
 
         setRotation({ x: rotateX, y: rotateY });
     };
@@ -39,18 +39,19 @@ export default function NeonCard({ children, className = '' }: NeonCardProps) {
             onMouseMove={handleMouseMove}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={handleMouseLeave}
-            className={`relative rounded-3xl transition-all duration-200 ease-out transform-gpu ${className}`}
+            className={`relative rounded-2xl transition-all duration-500 ease-out transform-gpu ${className}`}
             style={{
-                transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(${isHovered ? 1.02 : 1}, ${isHovered ? 1.02 : 1}, 1)`,
+                transform: `perspective(1000px) rotateX(${rotation.x}deg) rotateY(${rotation.y}deg) scale3d(${isHovered ? 1.01 : 1}, ${isHovered ? 1.01 : 1}, 1)`,
                 boxShadow: isHovered
-                    ? '0 20px 50px -10px rgba(0, 212, 170, 0.3), 0 0 15px rgba(0, 212, 170, 0.2)'
-                    : '0 10px 30px -10px rgba(0, 0, 0, 0.5)',
+                    ? '0 20px 40px -15px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.05)'
+                    : '0 4px 20px -12px rgba(0, 0, 0, 0.5)',
             }}
         >
-            {/* Dynamic Glow Border */}
+            {/* Precision Border */}
             <div
-                className={`absolute inset-0 rounded-3xl p-[1px] bg-gradient-to-br from-[#00D4AA] via-transparent to-[#6366f1] transition-opacity duration-300 ${isHovered ? 'opacity-100' : 'opacity-30'}`}
+                className={`absolute inset-0 rounded-2xl p-[1px] transition-opacity duration-500 ${isHovered ? 'opacity-100' : 'opacity-20'}`}
                 style={{
+                    background: 'linear-gradient(135deg, rgba(20, 184, 166, 0.5) 0%, transparent 40%, rgba(99, 102, 241, 0.3) 100%)',
                     mask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
                     maskComposite: 'exclude',
                     WebkitMask: 'linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0)',
@@ -58,10 +59,16 @@ export default function NeonCard({ children, className = '' }: NeonCardProps) {
                 }}
             />
 
-            {/* Content */}
-            <div className="relative h-full bg-[#0f172a]/90 backdrop-blur-xl rounded-3xl p-[1px] overflow-hidden">
+            {/* Inner Glow/Reflection */}
+            {isHovered && (
+                <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-white/5 to-transparent pointer-events-none transition-opacity duration-500" />
+            )}
+
+            {/* Content Container */}
+            <div className="relative h-full bg-zinc-950/40 backdrop-blur-md rounded-2xl overflow-hidden border border-white/5">
                 {children}
             </div>
         </div>
     );
 }
+

@@ -7,7 +7,7 @@ import { useWallet } from '@solana/wallet-adapter-react';
 import { useAnchorProgram } from '../hooks/useAnchorProgram';
 import { Sora } from 'next/font/google';
 
-const premium = Sora({ subsets: ['latin'], weight: ['400','600'] });
+const premium = Sora({ subsets: ['latin'], weight: ['400', '600'] });
 
 export default function Sidebar() {
   const pathname = usePathname();
@@ -41,15 +41,15 @@ export default function Sidebar() {
       const conn = (program as any).provider.connection;
       const programId = (program as any).programId;
       const accs = await conn.getProgramAccounts(programId, { commitment: 'processed' });
-      
+
       const received: any[] = [];
       const sent: any[] = [];
-      
+
       for (const a of accs) {
         try {
           const acct = await (program as any).account.collaborationRequest.fetchNullable(a.pubkey, 'processed');
           if (!acct) continue;
-          
+
           if (acct.to?.toString?.() === publicKey.toString()) {
             received.push({ publicKey: a.pubkey, account: acct });
           }
@@ -60,22 +60,22 @@ export default function Sidebar() {
           continue;
         }
       }
-      
+
       const pendingReceived = received.filter((r: any) => Object.keys(r.account.status)[0] === 'pending').length;
-      
+
       const notifiedRequests = getNotifiedRequests();
       let unreadResponses = 0;
-      
+
       for (const req of sent) {
         const reqId = req.publicKey.toString();
         const currentStatus = Object.keys(req.account.status || {})[0] || 'pending';
-        
+
         // If status is not pending AND we haven't notified yet, count as unread
         if (currentStatus !== 'pending' && !notifiedRequests.has(reqId)) {
           unreadResponses++;
         }
       }
-      
+
       setPendingCount(pendingReceived + unreadResponses);
     } catch (e) {
       console.warn('Sidebar: Failed to refresh pending count', e);
@@ -135,9 +135,9 @@ export default function Sidebar() {
   ];
 
   const renderIcon = (href: string) => {
-    const iconClass = "w-5 h-5";
-    
-    switch(href) {
+    const iconClass = "w-4 h-4";
+
+    switch (href) {
       case '/':
         return (
           <svg className={iconClass} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
@@ -207,68 +207,98 @@ export default function Sidebar() {
       )}
 
       {/* Sidebar */}
-      <aside className={`fixed left-0 top-0 h-screen w-64 bg-(--surface) border-r border-(--border) overflow-y-auto transition-transform duration-300 z-40 lg:z-auto lg:translate-x-0 ${
-        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
-      } lg:block ${premium.className}`}>
-      <div className="p-6">
-        {/* Logo */}
-        <Link href="/" className="block mb-8">
-          <h1 className="text-2xl font-semibold tracking-tight text-(--text-primary)">c0Foundr</h1>
-          <p className="text-xs mt-1 tracking-wide uppercase text-(--text-secondary)">Developer Collaboration</p>
-        </Link>
-
-        {/* Navigation Sections */}
-        <div className="space-y-6">
-          {navSections.map((section, idx) => (
-            <div key={idx}>
-              {section.collapsible ? (
-                <button
-                  onClick={section.toggle}
-                  className="flex items-center justify-between w-full text-xs font-semibold text-(--text-secondary) mb-3 tracking-widest uppercase"
-                >
-                  <span>{section.title}</span>
-                  <svg
-                    className={`w-4 h-4 transition-transform ${section.isOpen ? 'rotate-180' : ''}`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                  </svg>
-                </button>
-              ) : (
-                <h3 className="text-xs font-semibold text-(--text-secondary) mb-3 tracking-widest uppercase">{section.title}</h3>
-              )}
-
-              {(!section.collapsible || section.isOpen) && (
-                <div className="space-y-1">
-                  {section.items.map((item) => (
-                    <Link
-                      key={item.href}
-                      href={item.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={`relative flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                        isActive(item.href)
-                          ? 'bg-(--surface-hover) text-(--text-primary) before:content-[""] before:absolute before:left-0 before:top-1/2 before:-translate-y-1/2 before:h-6 before:w-1 before:rounded-r-full before:bg-[#00D4AA]'
-                          : 'text-(--text-secondary) hover:bg-(--surface-hover) hover:text-(--text-primary)'
-                      }`}
-                    >
-                      {renderIcon(item.href)}
-                      <span className="flex-1">{item.label}</span>
-                      {item.href === '/requests' && pendingCount > 0 && (
-                        <span className="h-5 px-1.5 flex items-center justify-center rounded-full bg-[#00D4AA] text-(--background) text-[11px] font-semibold">
-                          {pendingCount > 99 ? '99+' : pendingCount}
-                        </span>
-                      )}
-                    </Link>
-                  ))}
-                </div>
-              )}
+      <aside className={`fixed left-0 top-0 h-screen w-64 bg-zinc-950/80 backdrop-blur-xl border-r border-(--border) overflow-y-auto transition-transform duration-300 z-40 lg:z-auto lg:translate-x-0 ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'
+        } lg:block`}>
+        <div className="p-8">
+          {/* Logo */}
+          <Link href="/" className="flex items-center gap-3 mb-10 group">
+            <div className="w-8 h-8 rounded-lg bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-500 group-hover:bg-teal-500/20 transition-colors">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+              </svg>
             </div>
-          ))}
+            <div>
+              <h1 className="text-2xl font-bold tracking-tight text-(--text-primary)">c0Foundr</h1>
+              <p className="text-xs tracking-[0.2em] uppercase text-(--text-muted) font-semibold mt-0.5">Build Together</p>
+            </div>
+          </Link>
+
+          {/* Navigation Sections */}
+          <div className="space-y-8">
+            {navSections.map((section, idx) => (
+              <div key={idx}>
+                <div className="flex items-center justify-between mb-3 px-3">
+                  <h3 className="text-[13px] font-bold text-(--text-muted) tracking-[0.2em] uppercase">
+                    {section.title}
+                  </h3>
+                  {section.collapsible && (
+                    <button
+                      onClick={section.toggle}
+                      className="text-(--text-muted) hover:text-(--text-primary) transition-colors"
+                    >
+                      <svg
+                        className={`w-3 h-3 transition-transform ${section.isOpen ? 'rotate-180' : ''}`}
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </button>
+                  )}
+                </div>
+
+                {(!section.collapsible || section.isOpen) && (
+                  <div className="space-y-1">
+                    {section.items.map((item) => (
+                      <Link
+                        key={item.href}
+                        href={item.href}
+                        onClick={() => setMobileMenuOpen(false)}
+                        className={`group flex items-center gap-4 px-3 py-3 rounded-xl text-[16px] font-medium transition-all ${isActive(item.href)
+                          ? 'bg-zinc-900 border border-zinc-800 text-(--text-primary)'
+                          : 'text-(--text-secondary) hover:text-(--text-primary) hover:bg-zinc-900/50'
+                          }`}
+                      >
+                        <div className={`transition-colors ${isActive(item.href) ? 'text-teal-500' : 'text-zinc-500 group-hover:text-zinc-300'}`}>
+                          {renderIcon(item.href)}
+                        </div>
+                        <span className="flex-1">{item.label}</span>
+                        {item.href === '/requests' && pendingCount > 0 && (
+                          <span className="h-5 px-2 flex items-center justify-center rounded-md bg-teal-500/10 text-teal-500 text-[11px] font-bold border border-teal-500/20">
+                            {pendingCount > 99 ? '99+' : pendingCount}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
-    </aside>
+
+        {/* Bottom Profile / Wallet Status (Optional but clean) */}
+        <div className="absolute bottom-0 left-0 right-0 p-8 border-t border-(--border) bg-zinc-950/40">
+          <div className="flex items-center gap-3 opacity-60 hover:opacity-100 transition-opacity">
+            <div className="w-8 h-8 rounded-full bg-zinc-800 flex items-center justify-center text-zinc-400 text-xs font-mono">
+              {publicKey ? publicKey.toBase58().slice(0, 2) : '?'}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-medium text-white truncate">
+                {publicKey ? publicKey.toBase58().slice(0, 4) + '...' + publicKey.toBase58().slice(-4) : 'Not Connected'}
+              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <span className={`w-1.5 h-1.5 rounded-full ${publicKey ? 'bg-teal-500' : 'bg-red-500'}`} />
+                <p className="text-[11px] text-zinc-500 uppercase tracking-wider font-bold">
+                  {publicKey ? 'Live' : 'Offline'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </aside>
     </>
   );
 }
+
